@@ -117,7 +117,10 @@ Claude Code 不看系统代理，只认 `HTTPS_PROXY` 这个环境变量。把�
 
 结果里每个问题都会注明，该回到哪一步去改。
 
-想用网页快速看一眼的话，用平时登 Claude 的浏览器打开 [ip.net.coffee/claude](https://ip.net.coffee/claude/)。它是一个一站式检测页，能一次看清几件事：Claude 看到的 IP、这个 IP 的风险评分、DNS 有没有泄漏、WebRTC 有没有泄漏。
+想用网页快速看一眼的话，用平时登 Claude 的浏览器打开下面两个网站：
+
+- [ip.net.coffee/claude](https://ip.net.coffee/claude/)：一站式检测页，能一次看清 Claude 看到的 IP、这个 IP 的风险评分、DNS 有没有泄漏、WebRTC 有没有泄漏。
+- [fuck-claude.vercel.app](https://fuck-claude.vercel.app/zh/)：点「开始检测」，看浏览器环境的"中国用户"指纹评分，越低越好。自检里的指纹评分用的就是它的规则。
 
 ### 10. 日常使用
 
