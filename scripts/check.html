@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claude 环境自检</title>
+<style>
+  :root { --bg: #fafaf8; --fg: #1d1d1b; --muted: #6b6b66; --card: #fff; --line: #e4e4de; --accent: #c2410c; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #161615; --fg: #ececea; --muted: #9a9a94; --card: #1f1f1d; --line: #33332f; --accent: #fb923c; }
+  }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 680px; margin: 48px auto; padding: 0 16px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 24px; }
+  #status { padding: 14px 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); font-weight: 600; }
+  #status.done { border-color: var(--accent); }
+  ul { padding-left: 18px; color: var(--muted); }
+  details { margin-top: 20px; }
+  pre { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px; overflow-x: auto; font-size: 12px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Claude 环境自检</h1>
+  <p class="sub">所有检测在这个浏览器里本地运行，结果只交回你电脑上的检测脚本。</p>
+  <div id="status">检测中，请不要关闭此页（约 10 秒）…</div>
+  <ul>
+    <li>中文环境指纹：fuck-claude 的评分规则（时区、语言、字体、WebRTC 等）</li>
+    <li>WebRTC 候选地址、Claude 看到的出口 IP、IPv6</li>
+    <li>浏览器自己的 DNS 解析走向</li>
+  </ul>
+  <details><summary>原始结果</summary><pre id="out">（检测完成后显示）</pre></details>
+</main>
+<script src="fuckclaude-signals.js"></script>
+<script>
+const TOKEN = encodeURIComponent(new URLSearchParams(location.search).get('t') || '');
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const withTimeout = (p, ms, fallback) => Promise.race([p, sleep(ms).then(() => fallback)]);
+
+// Same scoring as fuck-claude.vercel.app: sum of round(score * weight), capped at 100.
+async function runFuckClaude() {
+  const { SIGNALS, riskBand } = window.FuckClaudeSignals;
+  let total = 0;
+  const signals = [];
+  for (const s of SIGNALS) {
+    let out;
+    try { out = await s.detect(); } catch { out = { raw: '—', score: 0 }; }
+    const contribution = Math.round(out.score * s.weight);
+    total += contribution;
+    signals.push({ id: s.id, weight: s.weight, raw: out.raw, score: out.score, contribution });
+  }
+  total = Math.min(100, total);
+  return { score: total, band: riskBand(total), signals };
+}
+
+// Collect every ICE candidate, the way browserleaks.com/webrtc does.
+function runWebRTC() {
+  return new Promise((resolve) => {
+    if (!window.RTCPeerConnection) return resolve({ supported: false, candidates: [] });
+    const candidates = [];
+    let pc;
+    let finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      try { pc && pc.close(); } catch {}
+      resolve({ supported: true, candidates });
+    };
+    try {
+      pc = new RTCPeerConnection({ iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun.cloudflare.com:3478' },
+      ] });
+      pc.onicecandidate = (e) => {
+        if (!e.candidate || !e.candidate.candidate) return finish();
+        const parts = e.candidate.candidate.split(' ');
+        candidates.push({ address: parts[4], type: parts[7], protocol: parts[2] });
+      };
+      pc.createDataChannel('');
+      pc.createOffer().then((o) => pc.setLocalDescription(o)).catch(finish);
+    } catch { finish(); }
+    setTimeout(finish, 4000);
+  });
+}
+
+async function fetchText(url) {
+  try {
+    const r = await withTimeout(fetch(url, { cache: 'no-store' }), 8000, null);
+    return r && r.ok ? (await r.text()).trim() : null;
+  } catch { return null; }
+}
+
+function parseTrace(text) {
+  if (!text) return null;
+  const t = Object.fromEntries(text.split('\n').map((l) => l.split('=')));
+  return { ip: t.ip, loc: t.loc, colo: t.colo, warp: t.warp };
+}
+
+// Let the browser itself resolve fresh dnsleaktest names, like its Standard test.
+function triggerDnsLookups(ids) {
+  return Promise.all(ids.map((id) => withTimeout(new Promise((resolve) => {
+    const img = new Image();
+    img.onload = img.onerror = resolve;
+    img.src = `https://${id}.test.dnsleaktest.com/?_=${Date.now()}`;
+  }), 6000)));
+}
+
+function environment() {
+  const ro = Intl.DateTimeFormat().resolvedOptions();
+  return {
+    userAgent: navigator.userAgent,
+    languages: navigator.languages,
+    timeZone: ro.timeZone,
+    locale: ro.locale,
+    utcOffsetMinutes: -new Date().getTimezoneOffset(),
+    webdriver: navigator.webdriver,
+  };
+}
+
+const RESTRICTED = ['CN', 'HK', 'MO', 'RU', 'BY', 'IR', 'KP', 'SY', 'CU'];
+const safe = (p) => p.catch(() => null);
+
+// Only touch claude.ai after a neutral pre-flight shows this browser already exits abroad,
+// so a browser that is not proxied never sends the real IP to Claude.
+async function exitTraces() {
+  const neutralTrace = parseTrace(await fetchText('https://1.1.1.1/cdn-cgi/trace'));
+  if (!neutralTrace || RESTRICTED.includes(neutralTrace.loc)) return { neutralTrace, claudeTrace: null };
+  return { neutralTrace, claudeTrace: parseTrace(await fetchText('https://claude.ai/cdn-cgi/trace')) };
+}
+
+function post(body) {
+  return fetch(`result?t=${TOKEN}`, { method: 'POST', body: JSON.stringify(body) });
+}
+
+async function main() {
+  const config = await (await fetch(`config?t=${TOKEN}`)).json();
+  const [fuckClaude, webrtc, traces, ipv6] = await Promise.all([
+    safe(runFuckClaude()),
+    safe(runWebRTC()),
+    safe(exitTraces()),
+    safe(fetchText('https://api6.ipify.org')),
+    safe(triggerDnsLookups(config.dnsIds || [])),
+  ]);
+  const result = { fuckClaude, webrtc, ...(traces || {}), ipv6, env: environment() };
+  const resp = await post(result);
+  const status = document.getElementById('status');
+  const score = fuckClaude ? `fuck-claude 评分 ${fuckClaude.score}/100。` : '';
+  status.textContent = resp.ok ? `完成：${score}结果已交回终端，可以关闭此页。`
+                               : '检测完成，但交回终端失败：终端里的脚本可能已经超时退出。';
+  status.classList.add('done');
+  document.getElementById('out').textContent = JSON.stringify(result, null, 2);
+}
+
+main().catch((e) => {
+  document.getElementById('status').textContent = '出错：' + e;
+  safe(post({ error: String(e) }));
+});
+</script>
+</body>
+</html>

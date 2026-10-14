@@ -1,0 +1,4 @@
+interface:
+  display_name: "Claude 防封环境自检"
+  short_description: "检测并整改 Claude 的出口 IP、DNS、WebRTC、IPv6、时区与浏览器指纹"
+  default_prompt: "使用 $claude-antiban 检查我用 Claude 的上网环境，告诉我哪里有风险、怎么改。"
