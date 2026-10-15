@@ -95,6 +95,16 @@ def test_post_rejects_bad_input(bridge, body, headers, status):
     assert request(port, "POST", f"/result?t={token}", body, hdrs)[0] == status
 
 
+def test_rejected_post_still_gets_a_clean_403(bridge):
+    # 拒绝时若不读完请求体就关连接，Windows 会发 RST，客户端收不到 403 而是连接被重置。
+    # 请求体越大越容易撞上；修之前 20 次里几乎必然出现一次。
+    port, token, _, _ = bridge
+    body = b'{"pad": "' + b"x" * 65536 + b'"}'
+    hdrs = {"Origin": "http://evil.example", "Content-Type": "application/json"}
+    for _ in range(20):
+        assert request(port, "POST", f"/result?t={token}", body, hdrs)[0] == 403
+
+
 def test_post_with_bad_content_length_is_rejected(bridge):
     port, token, _, _ = bridge
     conn = http.client.HTTPConnection("127.0.0.1", port, timeout=5)

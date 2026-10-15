@@ -94,9 +94,19 @@ def _handler(session: _Session) -> type:
                 return self._send(200, json.dumps(session.config).encode(), "application/json")
             return self._send(404, b"not found")
 
+        def _discard_body(self) -> None:
+            # 请求体没读完就关连接，Windows 会发 RST，对方收不到我们的错误响应
+            try:
+                length = int(self.headers.get("Content-Length", ""))
+            except ValueError:
+                return
+            if 0 < length <= MAX_BODY:
+                self.rfile.read(length)
+
         def do_POST(self) -> None:  # noqa: N802
             if (urlparse(self.path).path != "/result" or not self._host_ok() or not self._token_ok()
                     or self.headers.get("Origin") != self._origin()):
+                self._discard_body()
                 return self._send(403, b"forbidden")
             try:
                 length = int(self.headers.get("Content-Length", ""))
