@@ -60,7 +60,7 @@ Claude 能看到的只有两样东西：发往它服务器的连接，和浏览�
 
 | # | 做什么 | 谁 | 怎么做 | 通过标准 |
 |---|---|---|---|---|
-| 1 | 摸底 | 你 | `python <skill>/scripts/setup/clash_verge.py status`；Windows 再跑 `<skill>/scripts/setup/windows-setup.ps1`（不带参数只看状态） | 知道用户做到哪了。再问一句：平时用哪个浏览器登录 Claude |
+| 1 | 摸底 | 你 | `python <skill>/scripts/setup/clash_verge.py status`；Windows 再跑 `<skill>/scripts/setup/windows-setup.ps1`（不带参数只看状态） | 知道用户做到哪了。再问两句：静态 IP 到手了吗（没有就走下面的「IP 还没到手」）；平时用哪个浏览器登录 Claude |
 | 2 | 准备、让代理跑起来 | 用户 | 交接 A、B；status 里已经 [OK] 的部分跳过，只交没做的 | 用户回复做完 |
 | 3 | 核对 Clash 开关 | 你 | 再跑 `clash_verge.py status` | 除「DNS 覆写」外全 [OK]（它在第 7 步才开）；不对的，按交接格式请用户改 SETUP 第一节里对应那一条 |
 | 4 | 代理变量 | 你 | 摸底里 `HTTPS_PROXY` 没设，或端口和 status 的「代理端口」不一致时：`windows-setup.ps1 -ProxyPort <端口>`（macOS：`macos-setup.sh --proxy-port <端口>`） | 用户变量 `HTTPS_PROXY` 是 `http://127.0.0.1:<端口>` |
@@ -72,6 +72,13 @@ Claude 能看到的只有两样东西：发往它服务器的连接，和浏览�
 | 10 | 完整自检 | 你 | `python <skill>/scripts/selfcheck.py`。先告诉用户会弹出一个检测页，约 15 秒内不要关 | "严重"为 0，主要项 [OK] |
 | 11 | 登录 | 用户 | 交接 E | 用户回复登录好了 |
 | 12 | Claude Code（需要的话） | 你 | 按 Anthropic 官方文档安装，Windows 先装 Git for Windows | `Get-Command claude` 找得到。不要运行 `claude` 来测试 |
+
+**IP 还没到手**（用户在等卖家开通，先用临时代理，比如原来的机场订阅；用户这边的说明在 `SETUP.md`「IP 还没买到？先做能做的」）：
+
+- **你自己是 Claude 的话不要开工**：临时代理的 IP 多半是共用的，你的流量会把用户的 Claude 账号带到这个 IP 上。请用户换别的 AI 工具，或者等 IP 到了再开始。
+- **现在做**：第 1–4 步；第 6、7 步（DNS 覆写是全局的，现在写好就行；前置规则跟着订阅走，换订阅后要重写）；第 8 步只装网络任务，不带 `-TimeZone`；第 9 步，语言等用户确定了国家再改。第 3 步里临时订阅节点多，status 会建议全局模式，临时用不用管。
+- **停在第 5 步检查点**，按交接格式告诉用户：现在停下等 IP；IP 到了照 SETUP 那一节换订阅，然后回复"IP 到了"；这期间不要打开或登录 Claude。
+- **IP 到了以后**：先跑第 3 步 status，核对新订阅的节点数和模式 → 第 6 步（给新订阅写前置规则）→ 第 7 步 → 第 5 步检查点 → 第 8 步只带 `-TimeZone`（仍然提权，顺带关自动设置时区）→ 第 9 步补语言 → 第 10–12 步。
 
 **用 v2rayN 的**：status 会报"没找到 Clash Verge"。交接 B 时让用户看 SETUP 附录 A；第 3、6、7 步跳过；端口是 v2rayN 左下角 `mixed:` 后面的数字（默认 10808）。
 
@@ -89,6 +96,7 @@ Claude 能看到的只有两样东西：发往它服务器的连接，和浏览�
 3. 读日志确认结果。用户点了「否」，`Start-Process` 会报错，问过用户再来一次。
 
 - 时区不用改：去掉 `-TimeZone` 和后面的时区名。
+- 网络任务已经装过（比如「IP 还没到手」时先装了）：去掉 `'-NetworkTask'`。
 - 用户经常连需要网页登录的 Wi-Fi（酒店、机场、部分校园网）：加 `'-KeepDns'`，只关 IPv6，不改网卡 DNS。
 
 **macOS**：`macos-setup.sh --network` 和 `--timezone <IANA 时区名>` 要 sudo，把带绝对路径的命令按交接格式交给用户，在「终端」里运行，先加 `--dry-run`。macOS 脚本没有在真机上完整验证过，预演不能省。
