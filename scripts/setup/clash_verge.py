@@ -58,8 +58,8 @@ dns:
 DNS_MARKERS = ("#RULES", "nameserver-policy:", "geosite:cn")
 RULES_SKELETON = "# Profile Enhancement Rules Template for Clash Verge\n\nprepend: []\n\nappend: []\n\ndelete: []\n"
 
-SETUP_SWITCHES = "SETUP.md「一、先让代理跑起来」第 4 条（设置页的开关）"
-SETUP_MODE = "SETUP.md「一、先让代理跑起来」第 3 条（选节点和模式）"
+SETUP_SWITCHES = "SETUP.md「一、让代理跑起来」第 4 条（设置页的开关）"
+SETUP_MODE = "SETUP.md「四、换上你买的静态 IP」第 2 条（选节点和模式）"
 SETUP_RELOAD = "SETUP.md「二、让 Clash 重新加载配置」"
 
 TOP_LEVEL = re.compile(r"^([A-Za-z0-9_-]+):(?:\s+(.*?))?\s*$")
