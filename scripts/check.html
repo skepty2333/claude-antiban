@@ -134,6 +134,12 @@ function post(body) {
 }
 
 async function main() {
+  // Opened by double-click or a file preview: no local bridge, nothing to report to.
+  if (location.protocol !== 'http:' || !TOKEN) {
+    document.getElementById('status').textContent =
+      '这个页面要由检测脚本打开：在 skill 文件夹里运行 python scripts/selfcheck.py，它会自动在浏览器里打开这一页。直接双击打开测不了。';
+    return;
+  }
   const config = await (await fetch(`config?t=${TOKEN}`)).json();
   const [fuckClaude, webrtc, traces, ipv6] = await Promise.all([
     safe(runFuckClaude()),

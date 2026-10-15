@@ -153,6 +153,8 @@ def run_browser(px: Json, args: argparse.Namespace) -> tuple[Optional[Json], lis
         out(f"浏览器检测页出错：{str(raw['error'])[:200]}")
         return None, ids, "error"
     result = sanitize_browser(raw)
+    if result is not None:
+        result["claudeSkipped"] = bool(args.no_claude)  # 以脚本自己的参数为准，不信页面传回的
     return result, ids, "ok" if result else "timeout"
 
 

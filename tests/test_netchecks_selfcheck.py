@@ -228,6 +228,13 @@ def test_run_browser_tells_the_page_whether_to_skip_claude(monkeypatch):
     assert seen == [{"dnsIds": ["id"], "skipClaude": True}, {"dnsIds": ["id"], "skipClaude": False}]
 
 
+def test_run_browser_records_the_skip_itself_not_from_the_page(monkeypatch):
+    monkeypatch.setattr(nc, "dns_register", lambda proxy: [])
+    monkeypatch.setattr(sc, "run_in_browser", lambda config, **k: {"claudeSkipped": True, "neutralTrace": None})
+    args = SimpleNamespace(skip_browser=False, no_open=True, timeout=1, no_claude=False)
+    assert sc.run_browser(proxies(), args)[0]["claudeSkipped"] is False
+
+
 def test_run_browser_handles_page_error(monkeypatch):
     monkeypatch.setattr(nc, "dns_register", lambda proxy: ["id"])
     monkeypatch.setattr(sc, "run_in_browser", lambda *a, **k: {"error": "boom"})

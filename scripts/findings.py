@@ -120,6 +120,9 @@ def eval_browser_exit(report: Json) -> Json:
     if neutral.get("loc") in RESTRICTED:
         return finding("browser_exit", title, "bad",
                        f"浏览器出口在 {neutral.get('loc')}：没走代理。为保护真实 IP，没有去访问 claude.ai", "routing")
+    if not claude and b.get("claudeSkipped"):
+        return finding("browser_exit", title, "info",
+                       f"浏览器出口 {neutral.get('ip')}（{neutral.get('loc')}）；这次按 --no-claude 没有访问 claude.ai")
     if not claude:
         return finding("browser_exit", title, "warn",
                        f"浏览器出口 {neutral.get('ip')}（{neutral.get('loc')}），但取不到 claude.ai 的出口信息", "routing")

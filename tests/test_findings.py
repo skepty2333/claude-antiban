@@ -203,6 +203,13 @@ def test_fingerprint_band(band, level):
     assert finding["level"] == level and "fonts +12" in finding["summary"]
 
 
+def test_browser_exit_is_only_info_when_claude_was_skipped_on_purpose():
+    skipped = by_key(make_report(browser__claudeTrace=None, browser__claudeSkipped=True))["browser_exit"]
+    missing = by_key(make_report(browser__claudeTrace=None))["browser_exit"]
+    assert skipped["level"] == "info" and "--no-claude" in skipped["summary"]
+    assert missing["level"] == "warn"
+
+
 def test_fingerprint_points_to_font_cleanup_only_when_vendor_fonts_hit():
     vendor = {"id": "vendorFonts", "score": 1, "contribution": 10, "raw": "FZShuSong-Z01S"}
     system = {"id": "fonts", "score": 0.83, "contribution": 12, "raw": "SimSun"}
