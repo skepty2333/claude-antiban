@@ -203,6 +203,15 @@ def test_fingerprint_band(band, level):
     assert finding["level"] == level and "fonts +12" in finding["summary"]
 
 
+def test_fingerprint_points_to_font_cleanup_only_when_vendor_fonts_hit():
+    vendor = {"id": "vendorFonts", "score": 1, "contribution": 10, "raw": "FZShuSong-Z01S"}
+    system = {"id": "fonts", "score": 0.83, "contribution": 12, "raw": "SimSun"}
+    with_vendor = by_key(make_report(browser__fuckClaude={"score": 22, "band": "low", "signals": [system, vendor]}))
+    without = by_key(make_report(browser__fuckClaude={"score": 12, "band": "low", "signals": [system]}))
+    assert "fonts.py" in with_vendor["fingerprint"]["summary"]
+    assert "fonts.py" not in without["fingerprint"]["summary"]
+
+
 def test_ip_quality_flags():
     report = make_report(reputation={"is_datacenter": True, "company_name": "ACME"})
     report["geo"]["ip-api.com"]["flags"] = {"proxy": True, "hosting": True}

@@ -219,10 +219,19 @@ def test_build_report_tolerates_probe_failures(monkeypatch):
     assert report["clock"]["source"] == "system"
 
 
+def test_run_browser_tells_the_page_whether_to_skip_claude(monkeypatch):
+    monkeypatch.setattr(nc, "dns_register", lambda proxy: ["id"])
+    seen = []
+    monkeypatch.setattr(sc, "run_in_browser", lambda config, **k: seen.append(config))
+    for flag in (True, False):
+        sc.run_browser(proxies(), SimpleNamespace(skip_browser=False, no_open=True, timeout=1, no_claude=flag))
+    assert seen == [{"dnsIds": ["id"], "skipClaude": True}, {"dnsIds": ["id"], "skipClaude": False}]
+
+
 def test_run_browser_handles_page_error(monkeypatch):
     monkeypatch.setattr(nc, "dns_register", lambda proxy: ["id"])
     monkeypatch.setattr(sc, "run_in_browser", lambda *a, **k: {"error": "boom"})
-    args = SimpleNamespace(skip_browser=False, no_open=True, timeout=1)
+    args = SimpleNamespace(skip_browser=False, no_open=True, timeout=1, no_claude=False)
     assert sc.run_browser(proxies(), args) == (None, ["id"], "error")
     monkeypatch.setattr(sc, "run_in_browser", lambda *a, **k: None)
     assert sc.run_browser(proxies(), args)[2] == "timeout"

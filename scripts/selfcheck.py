@@ -48,6 +48,8 @@ def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Claude 防封环境自检")
     p.add_argument("--no-open", action="store_true", help="不自动打开浏览器，只打印检测页地址")
     p.add_argument("--skip-browser", action="store_true", help="跳过浏览器部分（指纹、WebRTC、浏览器 DNS）")
+    p.add_argument("--no-claude", action="store_true",
+                   help="检测页完全不访问 claude.ai（还在用临时代理做基线检测时用）")
     p.add_argument("--timeout", type=float, default=180, help="等待浏览器回传的秒数")
     p.add_argument("--full", action="store_true", help="JSON 里保留真实 IP（默认打码，便于交给 AI 解读）")
     p.add_argument("--json", type=Path, default=Path(tempfile.gettempdir()) / "claude-antiban-report.json",
@@ -145,7 +147,8 @@ def run_browser(px: Json, args: argparse.Namespace) -> tuple[Optional[Json], lis
     except Exception as exc:  # noqa: BLE001 - DNS part is optional
         out(f"（dnsleaktest 注册失败，浏览器 DNS 检测跳过：{exc}）")
         ids = []
-    raw = run_in_browser({"dnsIds": ids}, open_browser=not args.no_open, timeout=args.timeout)
+    raw = run_in_browser({"dnsIds": ids, "skipClaude": args.no_claude},
+                         open_browser=not args.no_open, timeout=args.timeout)
     if isinstance(raw, dict) and raw.get("error"):
         out(f"浏览器检测页出错：{str(raw['error'])[:200]}")
         return None, ids, "error"

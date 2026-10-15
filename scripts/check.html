@@ -121,10 +121,11 @@ const RESTRICTED = ['CN', 'HK', 'MO', 'RU', 'BY', 'IR', 'KP', 'SY', 'CU'];
 const safe = (p) => p.catch(() => null);
 
 // Only touch claude.ai after a neutral pre-flight shows this browser already exits abroad,
-// so a browser that is not proxied never sends the real IP to Claude.
-async function exitTraces() {
+// so a browser that is not proxied never sends the real IP to Claude. skipClaude (temporary
+// proxy, shared IP) keeps claude.ai out of the check entirely.
+async function exitTraces(skipClaude) {
   const neutralTrace = parseTrace(await fetchText('https://1.1.1.1/cdn-cgi/trace'));
-  if (!neutralTrace || RESTRICTED.includes(neutralTrace.loc)) return { neutralTrace, claudeTrace: null };
+  if (skipClaude || !neutralTrace || RESTRICTED.includes(neutralTrace.loc)) return { neutralTrace, claudeTrace: null };
   return { neutralTrace, claudeTrace: parseTrace(await fetchText('https://claude.ai/cdn-cgi/trace')) };
 }
 
@@ -137,7 +138,7 @@ async function main() {
   const [fuckClaude, webrtc, traces, ipv6] = await Promise.all([
     safe(runFuckClaude()),
     safe(runWebRTC()),
-    safe(exitTraces()),
+    safe(exitTraces(config.skipClaude === true)),
     safe(fetchText('https://api6.ipify.org')),
     safe(triggerDnsLookups(config.dnsIds || [])),
   ]);
