@@ -199,7 +199,7 @@ def test_status_flags_wrong_switches_and_points_to_setup(tmp_path: Path) -> None
     assert not checks["enable_auto_launch"]["ok"]  # missing key means the switch was never turned on
     assert not checks["ipv6"]["ok"]
     assert checks["enable_system_proxy"]["ok"]
-    assert "SETUP" in checks["enable_tun_mode"]["fix"]
+    assert "apply" in checks["enable_tun_mode"]["fix"]  # 开关由 AI 改，不再让用户去点
 
 
 def test_status_missing_ipv6_key_counts_as_on(tmp_path: Path) -> None:
@@ -341,3 +341,99 @@ def test_main_apply_and_verify_exit_codes(tmp_path: Path, capsys: pytest.Capture
     assert cv.main(["verify", "--dir", str(app), "--json"]) == 0
     payload = capsys.readouterr().out.strip().splitlines()[-1]
     assert json.loads(payload)["ok"] is True
+
+
+# ---------------------------------------------------------------- switches and restart
+
+class FakeApp:
+    """Records stop/start and what verge.yaml looked like when Clash was stopped."""
+
+    def __init__(self, app: Path, running: str | None = "C:/Clash Verge/clash-verge.exe") -> None:
+        self.app, self.running, self.events = app, running, []
+        self.verge_at_stop: str | None = None
+
+    def running_exe(self) -> str | None:
+        return self.running
+
+    def stop(self) -> None:
+        self.events.append("stop")
+        self.verge_at_stop = (self.app / "verge.yaml").read_text(encoding="utf-8")
+        self.running = None
+
+    def start(self, exe: str) -> None:
+        self.events.append(f"start {exe}")
+        (self.app / "clash-verge.yaml").write_text(RUNTIME_DONE, encoding="utf-8")
+
+
+def always_ready(port, runtime, since):
+    return True
+
+
+def test_set_top_level_replaces_or_appends() -> None:
+    text = "a: 1\nenable_tun_mode: true\nnested:\n  enable_tun_mode: true\n"
+    new = cv.set_top_level(text, "enable_tun_mode", "false")
+    assert "enable_tun_mode: false\nnested:\n  enable_tun_mode: true\n" in new
+    assert cv.set_top_level("a: 1\n", "ipv6", "false") == "a: 1\nipv6: false\n"
+    assert cv.set_top_level("a: 1", "ipv6", "false") == "a: 1\nipv6: false\n"
+
+
+def test_apply_stops_clash_before_touching_its_files_then_restarts(tmp_path: Path) -> None:
+    verge = VERGE_GOOD.replace("enable_tun_mode: false", "enable_tun_mode: true")
+    app = make_app(tmp_path, verge=verge, config=CONFIG_GOOD.replace("ipv6: false", "ipv6: true"))
+    fake = FakeApp(app)
+    cv.apply(app, dry_run=False, stamp="s", controller=fake, ready=always_ready)
+    assert fake.events == ["stop", "start C:/Clash Verge/clash-verge.exe"]
+    assert "enable_tun_mode: true" in fake.verge_at_stop  # 停下时还没改
+    report = cv.status(app)
+    assert all(c["ok"] for c in report["checks"]), report["checks"]
+    assert (app / "verge.yaml.before-claude-antiban-s.bak").exists()
+    assert (app / "config.yaml.before-claude-antiban-s.bak").exists()
+
+
+def test_apply_starts_an_installed_clash_that_was_not_running(tmp_path: Path) -> None:
+    app = make_app(tmp_path)
+    fake = FakeApp(app, running=None)
+    messages = cv.apply(app, dry_run=False, stamp="s", controller=fake, ready=always_ready,
+                        exe_finder=lambda running: "D:/Program Files/Clash Verge/clash-verge.exe")
+    assert fake.events == ["start D:/Program Files/Clash Verge/clash-verge.exe"]
+    assert any("已重启" in m or "已启动" in m for m in messages)
+
+
+def test_apply_dry_run_touches_neither_files_nor_clash(tmp_path: Path) -> None:
+    app = make_app(tmp_path, verge=VERGE_GOOD.replace("enable_tun_mode: false", "enable_tun_mode: true"))
+    fake = FakeApp(app)
+    messages = cv.apply(app, dry_run=True, stamp="s", controller=fake, ready=always_ready)
+    assert fake.events == [] and "enable_tun_mode: true" in (app / "verge.yaml").read_text(encoding="utf-8")
+    assert any("TUN" in m for m in messages) and any("重启" in m for m in messages)
+
+
+def test_apply_with_everything_in_place_does_not_restart(tmp_path: Path) -> None:
+    app = make_app(tmp_path, runtime=RUNTIME_DONE)
+    cv.apply(app, dry_run=False, stamp="s", controller=FakeApp(app), ready=always_ready)
+    fake = FakeApp(app)
+    messages = cv.apply(app, dry_run=False, stamp="t", controller=fake, ready=always_ready)
+    assert fake.events == [] and any("不用改" in m for m in messages)
+
+
+def test_apply_reports_when_clash_does_not_come_back(tmp_path: Path) -> None:
+    app = make_app(tmp_path)
+    messages = cv.apply(app, dry_run=False, stamp="s", controller=FakeApp(app),
+                        ready=lambda port, runtime, since: False)
+    assert any("没能确认" in m for m in messages)
+
+
+def test_restore_puts_switch_files_back_and_restarts(tmp_path: Path) -> None:
+    verge = VERGE_GOOD.replace("enable_tun_mode: false", "enable_tun_mode: true")
+    app = make_app(tmp_path, verge=verge)
+    cv.apply(app, dry_run=False, stamp="s", controller=FakeApp(app), ready=always_ready)
+    fake = FakeApp(app)
+    cv.restore(app, dry_run=False, controller=fake, ready=always_ready)
+    assert "enable_tun_mode: true" in (app / "verge.yaml").read_text(encoding="utf-8")
+    assert fake.events[0] == "stop" and fake.events[-1].startswith("start")
+
+
+def test_status_adds_what_windows_actually_has(tmp_path: Path) -> None:
+    app = make_app(tmp_path)
+    checks = checks_by_key(cv.status(app, os_state={"system_proxy": False, "autostart": True}))
+    assert not checks["os_system_proxy"]["ok"] and checks["os_autostart"]["ok"]
+    assert "os_system_proxy" not in checks_by_key(cv.status(app))
