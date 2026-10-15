@@ -249,7 +249,7 @@ def eval_dns_os(report: Json, country: Optional[str]) -> Json:
     _, desc = _dns_level(data["servers"], country)
     if any(srv.get("country_code") == "CN" for srv in data["servers"]):  # mainland ISP resolver
         return finding("dns_os", title, "warn",
-                       desc + "。不走代理的软件在用国内的 DNS；按 SETUP 第 5 步把网卡 DNS 固定为 1.1.1.1/8.8.8.8",
+                       desc + "。不走代理的软件在用国内的 DNS；用 windows-setup.ps1 -NetworkTask 把网卡 DNS 固定为 1.1.1.1/8.8.8.8（SKILL 配置流程第 8 步）",
                        "dns")
     return finding("dns_os", title, "ok", desc + "（只影响不走代理的软件）")
 

@@ -19,52 +19,81 @@ Claude 能看到的只有两样东西：发往它服务器的连接，和浏览�
 - 测试时**不运行 `claude` 命令**，也不用 Python、curl 访问 claude.ai 或 anthropic.com：不走代理的那条路会把真实 IP 直接发给 Claude。自检脚本的 Python 部分在代码里就拒绝连这些域名；检测页先用 1.1.1.1 确认浏览器已经从海外出口出去，才会去读 `claude.ai/cdn-cgi/trace`。
 - **不用** Playwright、无头浏览器或浏览器自动化扩展来跑指纹。要测的是用户平时登 Claude 的那个浏览器。
 - 时区按**多个 IP 库的多数结果**对齐（自检输出里已算好），不凭节点名或记忆猜。
-- 改系统、代理软件、浏览器设置前，先说清楚现状、要改什么、怎么回滚，用户确认后再动手。只改这次要改的项，不碰订阅、节点和程序生成的配置文件。
-- **你自己也是联网的程序。** 如果你是运行在用户电脑上的 Claude（例如 Claude Code），而用户还没做完 `SETUP.md` 的第 1–4 步，那么你的流量很可能正从真实 IP 发出去。这时应先停下，请用户按 `SETUP.md` 手动做完第 1–4 步，或换别的工具来带，然后再继续。
+- 改系统、代理软件、浏览器设置前，先说清楚现状、要改什么、怎么回滚，用户确认后再动手。只改这次要改的项。Clash 只通过 `clash_verge.py` 改 `dns_config.yaml` 和当前订阅的规则文件；订阅、节点、`verge.yaml`、`config.yaml` 和生成出来的 `clash-verge.yaml` 都不碰。
+- **你自己也是联网的程序。** 如果你是运行在用户电脑上的 Claude（例如 Claude Code），而用户还没做完 `SETUP.md` 的「一、先让代理跑起来」，那么你的流量很可能正从真实 IP 发出去。这时应先停下，请用户自己照这一节做完，或换别的工具来带，然后再继续。
+- **不要让用户退出或重启代理软件。** 退出时 Clash 会关掉系统代理，浏览器和你自己都会改用真实 IP 连接。要让 Clash 重新加载配置，用「DNS 覆写」开关（交接 C）。
 
 ## 先判断用户要哪一种
 
 - **新电脑或还没配过**（"从零配置""教我配""WebRTC 扩展怎么设"）→ 走**配置流程**。
 - **已经配过，想检查或排障**（"帮我查查""是不是泄漏了""时区对不对"）→ 走**体检流程**。
 
-## 和用户分工：到交接点就停
+## 和用户分工：交接
 
-技术活由你做：跑脚本、读自检结果、对照文档讲解。下面这些只能用户本人做。到了这些地方，这条回复只做交接，然后停下等用户回复，不要接着往下做。
+技术活都由你做。只有下面这几件必须用户亲手做，`SETUP.md` 里也只写了这些。轮到用户时，这条回复只做交接，然后停下等他回复，不要在同一条回复里接着调用工具。
 
-| 交接点 | 用户要做的 |
-|---|---|
-| **开场**（配置流程的第一条回复） | 读 `README.md`，弄懂思路；按 README「要买的东西」买独享静态 IP、Claude 账号和会员；装好 Clash Verge（或 v2rayN）和 Python。提醒他：账号先别登录 |
-| **图形界面**（第 1–3 步、第 6 步；v2rayN 是附录 A） | 照 `SETUP.md` 的截图在界面上操作 |
-| **管理员终端**（第 5 步） | 自己打开管理员终端，运行你给的命令 |
-| **自检通过后**（第 9 步） | 用配好的浏览器登录 Claude。提醒他不要在手机上下载 Claude App |
+| 交接 | 用户要做的 | 发给用户 |
+|---|---|---|
+| **A 准备** | 读 README，买独享静态 IP、Claude 账号和会员 | `README.md` 的「思路」和「要买的东西」 |
+| **B 让代理跑起来** | 装 Clash、导入订阅、选节点和模式、拨好设置页开关、设代理变量、把 skill 交给 AI | `SETUP.md`「一、先让代理跑起来」，截图 `assets/clash-1-import-subscription.png` 到 `assets/clash-4-settings.png` |
+| **C 重新加载 Clash** | 「DNS 覆写」关掉再打开（关着的直接打开） | `SETUP.md`「二、让 Clash 重新加载配置」 |
+| **D 浏览器** | WebRTC 扩展、安全 DNS、语言、防开机抢跑 | `SETUP.md`「三、浏览器设置」，截图 `assets/webrtc-1-store.png` 到 `assets/webrtc-4-use-proxy.png` |
+| **E 登录** | 登录 Claude；不在手机上装 Claude App | `SETUP.md`「五、登录 Claude」 |
 
-交接时一次只交一步，按这个格式写：
+另有一处不用停下：你运行提权命令时，用户要在管理员确认窗口里点「是」，在同一条回复里提前说一句即可。
+
+交接按这个格式写：
 
 ```
-**现在到了**：第 X 步，<这一步是干什么的，一句话>
-**该你做了**：<要做的事，附链接或截图的完整路径>
-**做完回我**：<要用户回复什么，比如"好了"、界面截图、某个数字>
+**现在到了**：<做到哪了，一句话>
+**该你做了**：<这一步需要你自己操作。照 SETUP.md 的「…」做，截图在 <完整路径>>
+**做完回我**：<比如"好了"、界面截图、某个数字>
 ```
 
-不要替用户下单付款，也不要向用户要订阅链接、账号或密码。
+- 截图写完整的绝对路径（本 skill 目录 + `assets/…`）；界面支持发文件的话，直接把截图发过去。
+- 用户的界面和截图对不上时，请他截一张自己的界面回来，对照着讲。
+- 不要替用户下单付款，也不要向用户要订阅链接、账号或密码。
 
-## 配置流程：按 `SETUP.md` 一步一步带
+## 配置流程
 
-`SETUP.md` 是给人看的完整教程：第 0 步到第 11 步，外加 v2rayN、macOS、虚拟机、TUN 四个附录。每步都有截图（`assets/`）和"怎么确认"。
+下面 `<skill>` 指本 skill 目录，命令里一律写绝对路径。改东西的命令先预演（`--dry-run` / `-WhatIf`）给用户看，用户同意后再执行。
 
-1. 第一条回复就是开场交接。除了上表里的事，再问清楚三件事：
-   - 用 Clash Verge 还是 v2rayN；
-   - Windows 还是 macOS；
-   - 平时用哪个浏览器登录 Claude。
+| # | 做什么 | 谁 | 怎么做 | 通过标准 |
+|---|---|---|---|---|
+| 1 | 摸底 | 你 | `python <skill>/scripts/setup/clash_verge.py status`；Windows 再跑 `<skill>/scripts/setup/windows-setup.ps1`（不带参数只看状态） | 知道用户做到哪了。再问一句：平时用哪个浏览器登录 Claude |
+| 2 | 准备、让代理跑起来 | 用户 | 交接 A、B；status 里已经 [OK] 的部分跳过，只交没做的 | 用户回复做完 |
+| 3 | 核对 Clash 开关 | 你 | 再跑 `clash_verge.py status` | 除「DNS 覆写」外全 [OK]（它在第 7 步才开）；不对的，按交接格式请用户改 SETUP 第一节里对应那一条 |
+| 4 | 代理变量 | 你 | 摸底里 `HTTPS_PROXY` 没设，或端口和 status 的「代理端口」不一致时：`windows-setup.ps1 -ProxyPort <端口>`（macOS：`macos-setup.sh --proxy-port <端口>`） | 用户变量 `HTTPS_PROXY` 是 `http://127.0.0.1:<端口>` |
+| 5 | 检查点 | 你 | `python <skill>/scripts/selfcheck.py --skip-browser` | 出口国家对，IP 没有滥用记录；不合格就停下，请用户找卖家。时区那一项告诉你要不要改、改成什么 |
+| 6 | DNS 覆写、国内直连规则 | 你 | `clash_verge.py apply --dry-run`，用户同意后 `clash_verge.py apply`（会自动备份） | 输出「已写入」或「不改」 |
+| 7 | 让 Clash 重新加载 | 用户 | 交接 C | `clash_verge.py verify` 为 [OK] |
+| 8 | 系统 IPv6、网卡 DNS、时区 | 你；用户点「是」 | 见下面「提权运行」 | 日志里每块网卡 IPv6 关、DNS 为 `1.1.1.1, 8.8.8.8`，时区对，自动设置时区已关闭 |
+| 9 | 浏览器 | 用户 | 交接 D | 第 10 步里 WebRTC、安全 DNS、指纹语言项通过 |
+| 10 | 完整自检 | 你 | `python <skill>/scripts/selfcheck.py`。先告诉用户会弹出一个检测页，约 15 秒内不要关 | "严重"为 0，主要项 [OK] |
+| 11 | 登录 | 用户 | 交接 E | 用户回复登录好了 |
+| 12 | Claude Code（需要的话） | 你 | 按 Anthropic 官方文档安装，Windows 先装 Git for Windows | `Get-Command claude` 找得到。不要运行 `claude` 来测试 |
 
-   用户说已经准备好了，就直接从第 1 步开始。
-2. 一次只带一步，做完这步的"怎么确认"再进下一步。
-   - **图形界面的步骤**（导入订阅、选节点、Clash 设置、装扩展）：照 `SETUP.md` 讲给用户，并告诉用户对应截图的完整路径（在 `assets/` 里）；界面支持发送文件的话，直接发过去。用户的界面和截图对不上时，请他截一张自己的界面回来，再对照着讲。
-   - **能用脚本的步骤**（第 4 步代理变量、第 5 步关 IPv6、第 7 步时区）：命令里一律写**脚本的绝对路径**。先用 `-WhatIf` 或 `--dry-run` 预演给用户看，用户同意后再执行。第 5 步要管理员权限，请用户自己开管理员终端；`-NetworkTask` 默认会把网卡 DNS 固定为 `1.1.1.1`/`8.8.8.8`；用户经常连需要网页登录的 Wi-Fi 时，加 `-KeepDns`。
-   - **代理软件必须开机自启**，不管是 Clash Verge 还是 v2rayN。做第 3 步时（v2rayN 是附录 A），务必确认用户打开了开机自启。
-3. 第 4 步之后有个"检查点"：运行 `python scripts/selfcheck.py --skip-browser`。出口国家不对，或者 IP 有滥用记录，就先停下，让用户找卖家处理。这次输出里 IP 库的多数结果，第 7 步对时区还要用。
-4. 做第 8 步完整自检。"严重"为 0、主要项都是 [OK]，环境才算配好。
-5. 然后是第 9 步的交接：用户登录 Claude、开会员。用户需要 Claude Code 的话，再带第 11 步。
+**用 v2rayN 的**：status 会报"没找到 Clash Verge"。交接 B 时让用户看 SETUP 附录 A；第 3、6、7 步跳过；端口是 v2rayN 左下角 `mixed:` 后面的数字（默认 10808）。
+
+**时区**：第 5 步检查点里，时区那一项按 IP 库多数结果判断；不一致时，提示里带着 Windows 时区名（如 `Pacific Standard Time`），对得上就不用改。
+
+**提权运行（第 8 步，Windows）**：
+
+1. 先不提权预演：`windows-setup.ps1 -NetworkTask -TimeZone "<Windows 时区名>" -WhatIf`，把要改的内容给用户看。
+2. 用户同意后，在同一条回复里先说"马上会弹出管理员确认窗口，请点「是」"，再运行（日志放在临时目录）：
+
+   ```powershell
+   Start-Process powershell -Verb RunAs -Wait -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','"<skill>\scripts\setup\windows-setup.ps1"','-NetworkTask','-TimeZone','"<Windows 时区名>"','-LogPath','"<日志路径>"'
+   ```
+
+3. 读日志确认结果。用户点了「否」，`Start-Process` 会报错，问过用户再来一次。
+
+- 时区不用改：去掉 `-TimeZone` 和后面的时区名。
+- 用户经常连需要网页登录的 Wi-Fi（酒店、机场、部分校园网）：加 `'-KeepDns'`，只关 IPv6，不改网卡 DNS。
+
+**macOS**：`macos-setup.sh --network` 和 `--timezone <IANA 时区名>` 要 sudo，把带绝对路径的命令按交接格式交给用户，在「终端」里运行，先加 `--dry-run`。macOS 脚本没有在真机上完整验证过，预演不能省。
+
+**Clash 改坏了**（用户说网页打不开）：先请用户关掉「DNS 覆写」，再运行 `clash_verge.py restore` 还原备份，然后交接 C。
 
 ## 体检流程
 
@@ -117,3 +146,4 @@ Claude 能看到的只有两样东西：发往它服务器的连接，和浏览�
 
 - `scripts/vendor/fuckclaude-signals.js` 来自 `LinXiaoTao/FuckClaude`（MIT 许可）。上游改了评分规则时，用 `scripts/update_fuckclaude_signals.py` 同步：先只看 commit，再用 `--commit` 构建，最后加 `--yes` 写入。
 - `assets/` 里的截图改编自第三方配置教程：已打码，并按本路线重新标注。Clash Verge 界面改版后需要重新截图。
+- `scripts/setup/clash_verge.py` 依赖 Clash Verge Rev 的配置文件布局：`profiles.yaml` 里的 `current` 和 `option.rules`、`dns_config.yaml`、生成出来的 `clash-verge.yaml`。Clash Verge 大改版后要核对一遍。

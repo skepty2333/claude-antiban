@@ -11,13 +11,16 @@
 .EXAMPLE
   .\windows-setup.ps1 -ProxyPort 7897                   # 持久代理变量（Claude Code 用），不需要管理员
 .EXAMPLE
-  .\windows-setup.ps1 -TimeZone "Pacific Standard Time" # 系统时区对齐出口（先关"自动设置时区"）
+  .\windows-setup.ps1 -TimeZone "Pacific Standard Time" # 系统时区对齐出口；以管理员运行时同时关掉"自动设置时区"
 .EXAMPLE
   .\windows-setup.ps1 -NetworkTask                      # 管理员：每次开机、联网都关掉 IPv6，并把网卡 DNS 固定为 1.1.1.1/8.8.8.8
 .EXAMPLE
   .\windows-setup.ps1 -NetworkTask -KeepDns             # 管理员：只关 IPv6，网卡 DNS 不动
 .EXAMPLE
   .\windows-setup.ps1 -Undo                             # 管理员：删掉本脚本加的变量和计划任务，恢复 IPv6 与自动 DNS
+.EXAMPLE
+  # AI 代为提权运行：弹出管理员确认，用户点「是」；输出写进日志，供 AI 读取
+  Start-Process powershell -Verb RunAs -Wait -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','"C:\path\windows-setup.ps1"','-NetworkTask','-TimeZone','"Pacific Standard Time"','-LogPath','"C:\path\setup.log"'
 #>
 [CmdletBinding(SupportsShouldProcess = $true)]
 param(
@@ -25,7 +28,8 @@ param(
     [string]$TimeZone,
     [switch]$NetworkTask,
     [switch]$KeepDns,
-    [switch]$Undo
+    [switch]$Undo,
+    [string]$LogPath
 )
 
 $ErrorActionPreference = 'Stop'
@@ -79,7 +83,23 @@ function Set-SystemTimeZone([string]$Id) {
     if (-not $target) { throw "没有叫 '$Id' 的时区。用 Get-TimeZone -ListAvailable 查看可用名称，例如 'Pacific Standard Time'。" }
     if ($PSCmdlet.ShouldProcess('系统时区', "改为 $Id")) {
         Set-TimeZone -Id $Id
-        Write-Host "时区已改为 $Id。记得在 设置 → 时间和语言 → 日期和时间 里关闭「自动设置时区」。" -ForegroundColor Green
+        Write-Host "时区已改为 $Id。" -ForegroundColor Green
+    }
+    Disable-AutoTimeZone
+}
+
+function Disable-AutoTimeZone {
+    # 「自动设置时区」就是 tzautoupdate 服务：Start=3 开，Start=4 关
+    $key = 'HKLM:\SYSTEM\CurrentControlSet\Services\tzautoupdate'
+    if (-not (Test-Path $key) -or (Get-ItemProperty $key).Start -eq 4) { return }
+    if (-not (Test-Admin) -and -not $WhatIfPreference) {
+        Write-Host '「自动设置时区」还开着，系统可能按定位把时区改回去：以管理员身份再运行一次带 -TimeZone 的命令即可关掉。' -ForegroundColor Yellow
+        return
+    }
+    if ($PSCmdlet.ShouldProcess('自动设置时区', '关闭（tzautoupdate 服务设为禁用）')) {
+        Stop-Service -Name tzautoupdate -ErrorAction SilentlyContinue
+        Set-ItemProperty -Path $key -Name Start -Value 4
+        Write-Host '已关闭「自动设置时区」。' -ForegroundColor Green
     }
 }
 
@@ -153,9 +173,17 @@ function Invoke-Undo {
     Write-Host '已撤销。时区不会自动改回，需要的话用 -TimeZone 指定。' -ForegroundColor Green
 }
 
-Show-State
-if ($Undo) { Invoke-Undo }
-if ($ProxyPort) { Set-ProxyEnv $ProxyPort }
-if ($TimeZone) { Set-SystemTimeZone $TimeZone }
-if ($NetworkTask) { Install-NetworkTask (-not $KeepDns) }
-if ($Undo -or $ProxyPort -or $TimeZone -or $NetworkTask) { Show-State }
+if ($LogPath) { Start-Transcript -LiteralPath $LogPath -Force -WhatIf:$false | Out-Null }  # 预演时也要写日志
+try {
+    Show-State
+    if ($Undo) { Invoke-Undo }
+    if ($ProxyPort) { Set-ProxyEnv $ProxyPort }
+    if ($TimeZone) { Set-SystemTimeZone $TimeZone }
+    if ($NetworkTask) { Install-NetworkTask (-not $KeepDns) }
+    if ($Undo -or $ProxyPort -or $TimeZone -or $NetworkTask) { Show-State }
+} catch {
+    Write-Host "出错：$($_.Exception.Message)" -ForegroundColor Red
+    throw
+} finally {
+    if ($LogPath) { Stop-Transcript | Out-Null }
+}

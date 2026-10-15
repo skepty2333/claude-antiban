@@ -42,6 +42,8 @@
 
 ## Clash DNS 覆写模板
 
+`scripts/setup/clash_verge.py apply` 写入的就是这份模板（不带 `listen` 那一行，所以不占用 53 端口）。已有的配置包含 `#RULES`、`nameserver-policy` 和 `geosite:cn` 时，脚本会保留原样。写入后要在 Clash 里把「DNS 覆写」关掉再打开，Clash 才会加载。
+
 ```yaml
 dns:
   enable: true

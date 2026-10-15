@@ -14,7 +14,7 @@ Claude 只看得到发往它服务器的连接。所以只需保证这三个入�
 
 ## 档位 A（推荐）：系统代理 + 持久代理变量
 
-1. 代理软件开"系统代理"。订阅只有一个节点用规则模式，并在"编辑规则"里加前置规则 `GEOSITE,cn,DIRECT` 和 `GEOIP,CN,DIRECT,no-resolve`，让国内网站直连；有多个节点用全局模式（规则要求见下文）。
+1. 代理软件开"系统代理"。订阅只有一个节点用规则模式，并加前置规则 `GEOSITE,cn,DIRECT` 和 `GEOIP,CN,DIRECT,no-resolve`，让国内网站直连；有多个节点用全局模式（规则要求见下文）。Clash Verge Rev 用 `scripts/setup/clash_verge.py apply` 写进当前订阅的规则文件，界面上对应订阅右键的「编辑规则」。
 2. 把代理变量存成用户级，新打开的程序都会读到（端口换成你客户端的 HTTP/混合端口：Clash Verge 默认 7897，v2rayN 在"设置 → 参数设置"里查本地端口）：
 
    ```powershell
