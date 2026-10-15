@@ -35,7 +35,7 @@ Claude 能看到的只有两样东西：发往它服务器的连接，和浏览�
 | 交接 | 用户要做的 | 发给用户 |
 |---|---|---|
 | **A 让代理跑起来** | 装 Clash Verge，导入他现在在用的订阅，选节点和模式 | `SETUP.md`「一、让代理跑起来」，截图 `assets/clash-1-import-subscription.png` 到 `assets/clash-3-node-mode.png` |
-| **B 浏览器** | 在登录 Claude 的那个浏览器里装 WebRTC 扩展、关安全 DNS、改语言、防开机抢跑；以后网页版 Claude 只用这一个浏览器 | `SETUP.md`「二、浏览器设置」，截图 `assets/webrtc-1-store.png` 到 `assets/webrtc-4-use-proxy.png` |
+| **B 浏览器** | 在 Claude 专用的浏览器里装 WebRTC 扩展、关安全 DNS、改语言、防开机抢跑；以后网页版 Claude 只用这一个浏览器，国内网站用另一个 | `SETUP.md`「二、浏览器设置」，截图 `assets/webrtc-1-store.png` 到 `assets/webrtc-4-use-proxy.png` |
 | **C 换上静态 IP** | **这时必须已经买好 IP**；导入新订阅、选节点和模式、删掉临时订阅 | `SETUP.md`「三、换上你买的静态 IP」；还没买的，发 `README.md`「要买的东西」 |
 | **D 登录** | **这时必须已经有 Claude 账号**；登录，不在手机上装 Claude App；普号登录后先正常用至少 72 小时再充会员 | `SETUP.md`「五、登录 Claude」。交接时把 72 小时这一条单独说一遍 |
 
@@ -68,15 +68,15 @@ Claude 能看到的只有两样东西：发往它服务器的连接，和浏览�
 
 | # | 做什么 | 谁 | 怎么做 | 通过标准 |
 |---|---|---|---|---|
-| 1 | 摸底 | 你 | `python <skill>/scripts/setup/clash_verge.py status`；Windows 再跑 `<skill>/scripts/setup/windows-setup.ps1`（不带参数只看状态） | 知道用户做到哪了。问清：现在用什么代理上网；静态 IP 买了没、是不是已经在用；平时用哪个浏览器登录 Claude |
+| 1 | 摸底 | 你 | `python <skill>/scripts/setup/clash_verge.py status`；Windows 再跑 `<skill>/scripts/setup/windows-setup.ps1`（不带参数只看状态） | 知道用户做到哪了。问清：现在用什么代理上网；静态 IP 买了没、是不是已经在用；选哪个浏览器专门登录 Claude（它以后全走节点，国内网站要换另一个浏览器，先讲清楚再让他选） |
 | 2 | 基线检测 | 你；用户别关检测页 | `python <skill>/scripts/selfcheck.py`（带浏览器的完整检测）。还没在用买的 IP 就加 `--no-claude` | 用大白话讲给用户：fuck-claude 现在多少分，命中了哪几项，每一项在后面第几步、由谁来改；中文字体那一项改不了，也要说明。记下报告 JSON 的路径，第 11 步要对比 |
 | 3 | 让代理跑起来 | 用户 | 交接 A，只交 status 里没做好的部分；先用他现有的订阅 | 用户回复做完 |
-| 4 | Clash 配置 | 你 | `clash_verge.py apply --dry-run` 给用户看；同意后 `clash_verge.py apply`：备份，改开关（系统代理开、TUN 关、开机自启、静默启动、IPv6 关、局域网关、DNS 覆写开），写 DNS 覆写和国内直连规则，重启 Clash | `clash_verge.py status` 全 [OK]，包括「系统里实际的代理设置」「系统里登记的开机自启」。模式不对的，请用户在 Clash 首页改；系统里没生效的，请用户在 Clash「设置」页手动打开那个开关（截图 `assets/clash-4-settings.png`，图里虚拟网卡开着，那是原教程的状态） |
+| 4 | Clash 配置 | 你 | `clash_verge.py apply --browser <chrome/edge/firefox/brave> --dry-run` 给用户看；同意后去掉 `--dry-run` 再跑：备份，改开关（系统代理开、TUN 关、开机自启、静默启动、IPv6 关、局域网关、DNS 覆写开），写 DNS 覆写和前置规则（专用浏览器和 `claude.exe` 全走节点，排在国内直连前面），重启 Clash | `clash_verge.py status` 全 [OK]，包括「系统里实际的代理设置」「系统里登记的开机自启」；`verify` 为 [OK]（进程规则已加载，排在国内直连前面）。模式不对的，请用户在 Clash 首页改；系统里没生效的，请用户在 Clash「设置」页手动打开那个开关（截图 `assets/clash-4-settings.png`，图里虚拟网卡开着，那是原教程的状态） |
 | 5 | 代理变量 | 你 | `HTTPS_PROXY` 没设或端口和 status 的「代理端口」不一致时，`windows-setup.ps1 -ProxyPort <端口>`（macOS：`macos-setup.sh --proxy-port <端口>`） | 用户变量 `HTTPS_PROXY` 是 `http://127.0.0.1:<端口>` |
 | 6 | 系统 IPv6、网卡 DNS | 你；用户点「是」 | 见下面「提权运行」，只带 `-NetworkTask` | 日志里每块网卡 IPv6 关、DNS 为 `1.1.1.1, 8.8.8.8` |
 | 7 | 国产厂商字体 | 你；用户同意并点「是」 | 第 2 步命中「国产厂商字体」时才做，见下面「删字体」 | 用户同意并删完、重启过；或者用户决定不删（尊重他的决定，最后报告里这一项照样是 [!]） |
 | 8 | 浏览器 | 用户 | 交接 B。第 2 步命中「国产浏览器」的，请用户改用 Chrome 或 Edge 登录 Claude。还没定买哪国 IP 的，语言先不改 | 用户回复做完 |
-| 9 | 换上静态 IP，检查 IP | 用户先换，你再查 | 交接 C（用户还没买好 IP，就停在这里等）→ `clash_verge.py status`，核对新订阅的节点数和模式 → `clash_verge.py apply`，给新订阅补前置规则并重启 → `selfcheck.py --skip-browser` | 出口国家对，IP 没有滥用记录；不合格就停下，请用户找卖家。时区那一项告诉你要不要改、改成什么。语言没改的，请用户现在改 |
+| 9 | 换上静态 IP，检查 IP | 用户先换，你再查 | 交接 C（用户还没买好 IP，就停在这里等）→ `clash_verge.py status`，核对新订阅的节点数和模式 → `clash_verge.py apply --browser <同上>`，给新订阅补前置规则并重启 → `selfcheck.py --skip-browser` | 出口国家对，IP 没有滥用记录；不合格就停下，请用户找卖家。时区那一项告诉你要不要改、改成什么。语言没改的，请用户现在改 |
 | 10 | 时区 | 你；用户点「是」 | 见下面「提权运行」，只带 `-TimeZone` | 日志里时区对，自动设置时区已关闭 |
 | 11 | 完整检测，和起点对比 | 你；用户别关检测页 | `python <skill>/scripts/selfcheck.py` | "严重"为 0，主要项 [OK]。把起点和现在的 fuck-claude 分数、各项变化列给用户看 |
 | 12 | 登录 | 用户 | 交接 D（用户还没有账号，就停在这里等） | 用户回复登录好了 |
@@ -84,7 +84,7 @@ Claude 能看到的只有两样东西：发往它服务器的连接，和浏览�
 
 **用户一开始就在用买好的 IP**：第 2 步不加 `--no-claude`，第 2 步的结果就当检查点看；第 9 步跳过交接 C，只做检查；第 6、10 步可以合成一次提权运行。
 
-**用 v2rayN 的**：status 会报"没找到 Clash Verge"。交接 A、C 时让用户看 SETUP 附录 A，开关也请他照附录 A 自己设；第 4 步和第 9 步里的 `apply` 跳过；端口是 v2rayN 左下角 `mixed:` 后面的数字（默认 10808）。
+**用 v2rayN 的**：status 会报"没找到 Clash Verge"。交接 A、C 时让用户看 SETUP 附录 A，开关也请他照附录 A 自己设，路由选「全局」（v2rayN 做不了专用浏览器的进程规则）；第 4 步和第 9 步里的 `apply` 跳过；端口是 v2rayN 左下角 `mixed:` 后面的数字（默认 10808）。
 
 **时区**：第 9 步检查里，时区那一项按 IP 库多数结果判断；不一致时，提示里带着 Windows 时区名（如 `Pacific Standard Time`），对得上就不用改。
 
@@ -170,7 +170,8 @@ macOS 没有这个脚本：请用户在「字体册」里找到这些字体，�
 | DoH 写 `#GLOBAL` | GLOBAL 组常停在 DIRECT，结果 DoH 被墙；改用 `#RULES` |
 | 一个 IP 库说在哪就在哪 | 各库常有出入，按多数结果算 |
 | 删掉微软雅黑来降分 | 系统字体不能删；字体只是网页指纹，Claude Code 不读 |
-| Claude 的邮件随手在手机上看 | 赠金、活动邮件带追踪像素和跳转链接，打开、点击时的 IP 会被发件方看到；只在配好的浏览器里用网页邮箱看。登录交接时顺带提醒 |
+| 国内直连就够了 | 网页、邮件能让浏览器去请求国内地址，借直连拿到真实 IP（ip.net.coffee 的「中国出口 IPv4」就是这么测的）。专用浏览器和 `claude.exe` 要用进程规则全走节点；不开 TUN 时 mihomo 也能认出系统代理连接的进程（Windows 实测） |
+| Claude 的邮件随手在手机上看 | 赠金、活动邮件带追踪像素和跳转链接，打开、点击时的 IP 会被发件方看到；只在专用浏览器里用网页邮箱看（全走节点），最好 Gmail 网页版。登录交接时顺带提醒 |
 
 ## 维护
 

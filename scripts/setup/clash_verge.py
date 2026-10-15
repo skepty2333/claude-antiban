@@ -1,14 +1,15 @@
-"""Clash Verge Rev：读开关状态；改开关、DNS 覆写和国内直连前置规则，再重启 Clash 让它生效。
+"""Clash Verge Rev：读开关状态；改开关、DNS 覆写和前置规则，再重启 Clash 让它生效。
 
 只用标准库。会改四个文件：verge.yaml、config.yaml（开关）、dns_config.yaml（DNS 覆写）、
-当前订阅的规则文件（前置规则），改之前都会备份。verge.yaml 和 config.yaml 是 Clash 运行时
-自己会改写的，所以先停掉 Clash 再改，改完重新启动它（见 clash_app.py）。订阅和节点不碰。
-不输出订阅链接和 secret。
+当前订阅的规则文件（前置规则，见 clash_rules.py），改之前都会备份。verge.yaml 和 config.yaml
+是 Clash 运行时自己会改写的，所以先停掉 Clash 再改，改完重新启动它（见 clash_app.py）。
+订阅和节点不碰。不输出订阅链接和 secret。
 
-    python clash_verge.py status [--json]        # 各开关对不对、端口、节点数、DNS 和规则是否已写入并生效
-    python clash_verge.py apply [--dry-run]      # 改开关、写 DNS 覆写和前置规则，重启 Clash
-    python clash_verge.py verify [--json]        # 确认 Clash 实际加载的配置已包含改动
-    python clash_verge.py restore [--dry-run]    # 用最近一次备份还原，重启 Clash
+    python clash_verge.py status [--json]                  # 开关、端口、节点数、DNS 和规则是否写入并生效
+    python clash_verge.py apply --browser chrome [--dry-run]
+        # 改开关、写 DNS 覆写和前置规则（专用浏览器和 Claude 程序全走节点、国内直连），重启 Clash
+    python clash_verge.py verify [--json]                  # 确认 Clash 实际加载的配置已包含改动
+    python clash_verge.py restore [--dry-run]              # 用最近一次备份还原，重启 Clash
     apply / restore 加 --no-restart：只改文件，不重启 Clash
     以上都可以加 --dir <Clash Verge 配置目录>
 """
@@ -26,10 +27,12 @@ from pathlib import Path
 from typing import Callable, Mapping
 
 import clash_app
+from clash_rules import (BROWSERS, PREPEND_RULES, PROCESS_PREFIX, TOP_LEVEL, add_prepend_rules,  # noqa: F401
+                         has_prepend_rules, in_order, match_target, merge_prepend, prepend_entries,
+                         process_rules, runtime_process_first, unquote)
 
 APP_ID = "io.github.clash-verge-rev.clash-verge-rev"
 BACKUP_TAG = "before-claude-antiban"
-PREPEND_RULES = ("GEOSITE,cn,DIRECT", "GEOIP,CN,DIRECT,no-resolve")
 DEFAULT_PORT = 7897
 
 DNS_TEMPLATE = """\
@@ -60,7 +63,6 @@ dns:
 """
 # 已有的 DNS 覆写同时满足这几处，就算推荐配置（用户自己加了 listen 等也不覆盖）
 DNS_MARKERS = ("#RULES", "nameserver-policy:", "geosite:cn")
-RULES_SKELETON = "# Profile Enhancement Rules Template for Clash Verge\n\nprepend: []\n\nappend: []\n\ndelete: []\n"
 
 # (文件, 键, 目标值, 未设置时的默认值, 显示名)
 SWITCHES = (
@@ -75,9 +77,6 @@ SWITCHES = (
 FIX_APPLY = "运行 clash_verge.py apply"
 FIX_OS = "运行 clash_verge.py apply；还不行就请用户在 Clash「设置」页手动打开这个开关"
 SETUP_MODE = "SETUP.md「三、换上你买的静态 IP」第 2 条（选节点和模式）"
-
-TOP_LEVEL = re.compile(r"^([A-Za-z0-9_-]+):(?:\s+(.*?))?\s*$")
-LIST_ITEM = re.compile(r"^\s*-\s+(.*?)\s*$")
 ReadyCheck = Callable[[int, Path, float], bool]
 
 
@@ -116,20 +115,13 @@ def _read(path: Path | None) -> str | None:
     return path.read_text(encoding="utf-8", errors="replace")
 
 
-def _unquote(value: str) -> str:
-    value = re.sub(r"\s+#.*$", "", value).strip()
-    if len(value) >= 2 and value[0] == value[-1] and value[0] in "'\"":
-        return value[1:-1]
-    return value
-
-
 def read_top_level(text: str) -> dict[str, str]:
     """只取顶层的 `key: value`，嵌套内容忽略。"""
     result: dict[str, str] = {}
     for line in text.splitlines():
         match = TOP_LEVEL.match(line)
         if match:
-            result[match.group(1)] = _unquote(match.group(2) or "")
+            result[match.group(1)] = unquote(match.group(2) or "")
     return result
 
 
@@ -141,13 +133,13 @@ def _profile_items(text: str) -> dict[str, dict[str, str]]:
         start = re.match(r"^- uid:\s*(\S+)", line)
         if start:
             current = {}
-            items[_unquote(start.group(1))] = current
+            items[unquote(start.group(1))] = current
             continue
         if current is None:
             continue
         field = re.match(r"^  (type|file):\s*(\S+)", line) or re.match(r"^    (rules):\s*(\S+)", line)
         if field:
-            current[field.group(1)] = _unquote(field.group(2))
+            current[field.group(1)] = unquote(field.group(2))
     return items
 
 
@@ -220,48 +212,14 @@ def os_checks(os_state: Mapping[str, bool | None]) -> list[Check]:
             for key, value in os_state.items() if value is not None and key in labels]
 
 
-def prepend_entries(text: str) -> list[str]:
-    """规则文件里 prepend 的条目；没有 prepend 返回空列表，看不懂的行内列表抛 ValueError。"""
-    lines = text.splitlines()
-    for i, line in enumerate(lines):
-        match = re.match(r"^prepend:\s*(.*?)\s*$", line)
-        if not match:
-            continue
-        inline = match.group(1)
-        if inline in ("[]", ""):
-            return [] if inline == "[]" else _block_items(lines[i + 1:])
-        raise ValueError("prepend 写成了行内列表")
-    return []
-
-
-def _block_items(lines: list[str]) -> list[str]:
-    items = []
-    for line in lines:
-        if not line.strip():
-            continue
-        item = LIST_ITEM.match(line)
-        if not item:
-            break
-        items.append(_unquote(item.group(1)))
-    return items
-
-
-def has_prepend_rules(text: str | None) -> bool:
-    try:
-        entries = prepend_entries(text or "")
-    except ValueError:
-        return False
-    return all(rule in entries for rule in PREPEND_RULES)
-
-
 def dns_template_applied(text: str | None) -> bool:
     return bool(text) and all(marker in text for marker in DNS_MARKERS)
 
 
 def runtime_state(app: Path) -> dict[str, bool]:
-    """Clash 实际加载的配置（clash-verge.yaml）里有没有这两处改动。"""
+    """Clash 实际加载的配置（clash-verge.yaml）里有没有这几处改动。"""
     text = _read(app / "clash-verge.yaml") or ""
-    return {"dns": "#RULES" in text, "rules": PREPEND_RULES[0] in text}
+    return {"dns": "#RULES" in text, "rules": PREPEND_RULES[0] in text, "process_first": runtime_process_first(text)}
 
 
 def _port(verge: Mapping[str, str], clash: Mapping[str, str]) -> int:
@@ -275,6 +233,13 @@ def _switch_files(app: Path) -> dict[str, dict[str, str]]:
     return {name: read_top_level(_read(app / name) or "") for name in ("verge.yaml", "config.yaml")}
 
 
+def _entries(text: str | None) -> list[str]:
+    try:
+        return prepend_entries(text or "")
+    except ValueError:
+        return []
+
+
 def status(app: Path, os_state: Mapping[str, bool | None] | None = None) -> dict:
     files = _switch_files(app)
     sub, rules = current_profile_files(app)
@@ -282,14 +247,17 @@ def status(app: Path, os_state: Mapping[str, bool | None] | None = None) -> dict
     proxies = count_proxies(sub_text) if sub_text else None
     mode = mode_check(files["config.yaml"], proxies)
     checks = switch_checks(files) + ([mode] if mode else []) + os_checks(os_state or {})
+    rules_text = _read(rules)
     return {
         "app_dir": str(app),
         "port": _port(files["verge.yaml"], files["config.yaml"]),
         "proxies": proxies,
         "checks": [asdict(c) for c in checks],
         "rules_file": rules.name if rules else None,
+        "match_group": match_target(sub_text or ""),
         "dns_template": dns_template_applied(_read(app / "dns_config.yaml")),
-        "prepend_rules": has_prepend_rules(_read(rules)),
+        "prepend_rules": has_prepend_rules(rules_text),
+        "process_rules": [e for e in _entries(rules_text) if e.startswith(PROCESS_PREFIX)],
         "runtime": runtime_state(app),
     }
 
@@ -298,7 +266,7 @@ def verify(app: Path) -> dict:
     report = status(app)
     dns_on = next(c["ok"] for c in report["checks"] if c["key"] == "enable_dns_settings")
     runtime = report["runtime"]
-    return {"dns_override_on": dns_on, **runtime, "ok": dns_on and runtime["dns"] and runtime["rules"]}
+    return {"dns_override_on": dns_on, **runtime, "ok": dns_on and all(runtime.values())}
 
 
 # ---------------------------------------------------------------- 算出要改什么
@@ -312,28 +280,6 @@ def set_top_level(text: str, key: str, value: str) -> str:
             lines[i] = f"{key}: {value}"
             return "\n".join(lines) + "\n"
     return "\n".join([*lines, f"{key}: {value}"]) + "\n"
-
-
-def add_prepend_rules(text: str) -> str:
-    """把缺的前置规则加到 prepend 最前面，原有条目保留在后面。"""
-    if not text.strip():
-        text = RULES_SKELETON
-    entries = prepend_entries(text)  # 看不懂的格式在这里抛 ValueError
-    missing = [rule for rule in PREPEND_RULES if rule not in entries]
-    if not missing:
-        return text
-    lines = text.splitlines()
-    for i, line in enumerate(lines):
-        if re.match(r"^prepend:", line):
-            indent = _item_indent(lines[i + 1:]) if entries else ""  # 同一列表的缩进必须一致
-            lines[i:i + 1] = ["prepend:", *(f"{indent}- {rule}" for rule in missing)]
-            return "\n".join(lines) + "\n"
-    return "\n".join(["prepend:", *(f"- {rule}" for rule in missing), *lines]) + "\n"
-
-
-def _item_indent(lines: list[str]) -> str:
-    first = next(line for line in lines if line.strip())
-    return first[: len(first) - len(first.lstrip())]
 
 
 def _switch_changes(app: Path) -> list[tuple[Path, str, str]]:
@@ -352,7 +298,18 @@ def _switch_changes(app: Path) -> list[tuple[Path, str, str]]:
     return changes
 
 
-def plan(app: Path) -> tuple[list[tuple[Path, str, str]], list[str]]:
+def _desired_rules(sub_text: str, browser: str | None, platform: str) -> tuple[list[str], list[str]]:
+    group, notes = match_target(sub_text), []
+    if not group or group.upper() == "DIRECT":
+        notes.append("订阅里没找到兜底规则 MATCH 走的代理组，进程规则没写，只写国内直连两条；请看一下订阅的规则")
+        return list(PREPEND_RULES), notes
+    if not browser:
+        notes.append("没指定 --browser：只给 Claude 程序写了进程规则，Claude 专用浏览器的还没写")
+    return process_rules(browser, group, platform) + list(PREPEND_RULES), notes
+
+
+def plan(app: Path, browser: str | None = None,
+         platform: str = sys.platform) -> tuple[list[tuple[Path, str, str]], list[str]]:
     """要写的文件 (路径, 新内容, 说明)，以及不用改或改不了的说明。"""
     changes, notes = _switch_changes(app), []
     dns_path = app / "dns_config.yaml"
@@ -360,18 +317,23 @@ def plan(app: Path) -> tuple[list[tuple[Path, str, str]], list[str]]:
         notes.append("DNS 覆写已经是推荐配置")
     else:
         changes.append((dns_path, DNS_TEMPLATE, " DNS 覆写"))
-    _, rules = current_profile_files(app)
-    text = _read(rules) or ""
+    sub, rules = current_profile_files(app)
     if rules is None:
         notes.append("没找到当前订阅的规则文件（还没导入订阅，或用的是本地配置），前置规则没写；"
-                     "全局模式下可以不管，规则模式请让用户在订阅上右键「编辑规则」手动加")
-    elif has_prepend_rules(text):
-        notes.append("国内直连前置规则已经有了")
+                     "请让用户在订阅上右键「编辑规则」手动加")
+        return changes, notes
+    desired, rule_notes = _desired_rules(_read(sub) or "", browser, platform)
+    notes += rule_notes
+    text = _read(rules) or ""
+    try:
+        new_text = merge_prepend(text, desired)
+    except ValueError:
+        notes.append(f"规则文件 {rules.name} 的格式看不懂，没改；请让用户在订阅上右键「编辑规则」手动加")
+        return changes, notes
+    if new_text == text:
+        notes.append("前置规则已经齐了")
     else:
-        try:
-            changes.append((rules, add_prepend_rules(text), "国内直连前置规则"))
-        except ValueError:
-            notes.append(f"规则文件 {rules.name} 的格式看不懂，没改；请让用户在订阅上右键「编辑规则」手动加")
+        changes.append((rules, new_text, "前置规则（" + "；".join(desired) + "）"))
     return changes, notes
 
 
@@ -410,11 +372,11 @@ def _restart(app: Path, controller: clash_app.ClashApp | None, ready: ReadyCheck
 
 def apply(app: Path, dry_run: bool, stamp: str | None = None, controller: clash_app.ClashApp | None = None,
           ready: ReadyCheck = clash_app.wait_ready,
-          exe_finder: Callable[[str | None], str | None] = clash_app.find_exe) -> list[str]:
+          exe_finder: Callable[[str | None], str | None] = clash_app.find_exe,
+          browser: str | None = None, platform: str = sys.platform) -> list[str]:
     stamp = stamp or time.strftime("%Y%m%d-%H%M%S")
-    changes, notes = plan(app)
-    loaded = all(runtime_state(app).values())
-    if not changes and loaded:
+    changes, notes = plan(app, browser, platform)
+    if not changes and all(runtime_state(app).values()):
         return notes + ["都已经是推荐设置，不用改"]
     if dry_run:
         return ([f"[预演] 将写入{what}：{path}" + ("（会先备份）" if path.exists() else "")
@@ -465,19 +427,23 @@ def _print_status(report: dict) -> None:
     print(f"DNS 覆写内容：{'推荐配置' if report['dns_template'] else '还不是推荐配置 → 运行 apply'}")
     rules = report["rules_file"] or "（没找到当前订阅的规则文件）"
     print(f"国内直连前置规则（{rules}）：{'已写入' if report['prepend_rules'] else '未写入 → 运行 apply'}")
+    process = "；".join(report["process_rules"]) or "未写入 → 运行 apply --browser <浏览器>"
+    print(f"全走节点的进程规则（兜底代理组 {report['match_group'] or '未找到'}）：{process}")
     runtime = report["runtime"]
-    loaded = runtime["dns"] and runtime["rules"]
+    loaded = all(runtime.values())
     print(f"Clash 实际加载的配置：{'已包含以上改动' if loaded else '还没包含 → 运行 apply（会重启 Clash）'}")
 
 
 def _print_verify(result: dict) -> None:
     if result["ok"]:
-        print("[OK] Clash 已加载新的 DNS 覆写和国内直连规则")
+        print("[OK] Clash 已加载新的 DNS 覆写、进程规则和国内直连规则，进程规则排在前面")
         return
     if not result["dns_override_on"]:
         print("[X] 「DNS 覆写」开关没开 → 运行 apply")
-    if not (result["dns"] and result["rules"]):
-        print(f"[X] Clash 实际加载的配置里还没有改动（DNS：{result['dns']}，规则：{result['rules']}）→ 运行 apply")
+    missing = [name for key, name in (("dns", "DNS 覆写"), ("rules", "国内直连规则"),
+                                      ("process_first", "排在国内直连前面的进程规则")) if not result[key]]
+    if missing:
+        print(f"[X] Clash 实际加载的配置里还没有：{'、'.join(missing)} → 运行 apply")
 
 
 def _os_state(app: Path) -> dict[str, bool | None]:
@@ -490,6 +456,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Clash Verge Rev 配置检查与修改（claude-antiban）")
     parser.add_argument("command", choices=["status", "apply", "verify", "restore"])
     parser.add_argument("--dir", help="Clash Verge 配置目录，默认按系统自动找")
+    parser.add_argument("--browser", choices=sorted(BROWSERS), help="apply 用：用户专门登录 Claude 的浏览器")
     parser.add_argument("--dry-run", action="store_true", help="apply / restore 只预演，不写文件、不重启")
     parser.add_argument("--json", action="store_true", help="status / verify 输出 JSON")
     parser.add_argument("--no-restart", action="store_true", help="apply / restore 只改文件，不重启 Clash")
@@ -506,9 +473,12 @@ def main(argv: list[str] | None = None) -> int:
         else:
             (_print_status if args.command == "status" else _print_verify)(result)
         return 0 if args.command == "status" or result["ok"] else 1
-    action = apply if args.command == "apply" else restore
     controller = None if args.dry_run or args.no_restart else clash_app.platform_app()
-    for message in action(app, dry_run=args.dry_run, controller=controller):
+    if args.command == "apply":
+        messages = apply(app, dry_run=args.dry_run, controller=controller, browser=args.browser)
+    else:
+        messages = restore(app, dry_run=args.dry_run, controller=controller)
+    for message in messages:
         print(message)
     return 0
 

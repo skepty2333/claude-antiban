@@ -103,6 +103,7 @@ dns:
   nameserver:
   - https://1.1.1.1/dns-query#RULES
 rules:
+- PROCESS-NAME,claude.exe,PROXY
 - GEOSITE,cn,DIRECT
 - GEOIP,CN,DIRECT,no-resolve
 - MATCH,PROXY
@@ -221,7 +222,7 @@ def test_status_reports_pending_dns_and_rules(tmp_path: Path) -> None:
     report = cv.status(make_app(tmp_path))
     assert report["dns_template"] is False
     assert report["prepend_rules"] is False
-    assert report["runtime"] == {"dns": False, "rules": False}
+    assert report["runtime"] == {"dns": False, "rules": False, "process_first": False}
 
 
 def test_status_never_leaks_subscription_url_or_secret(tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
@@ -254,7 +255,7 @@ def test_add_prepend_rules_keeps_existing_entries_after_ours() -> None:
 def test_add_prepend_rules_only_adds_missing_one() -> None:
     text = "prepend:\n  - 'GEOSITE,cn,DIRECT'\nappend: []\n"
     new = cv.add_prepend_rules(text)
-    assert cv.prepend_entries(new) == ["GEOIP,CN,DIRECT,no-resolve", "GEOSITE,cn,DIRECT"]
+    assert cv.prepend_entries(new) == list(cv.PREPEND_RULES)
     assert "\n  - GEOIP,CN,DIRECT,no-resolve\n" in new  # 和原有条目同样缩进，否则 YAML 解析失败
 
 
@@ -280,12 +281,12 @@ def test_apply_dry_run_writes_nothing(tmp_path: Path) -> None:
 
 def test_apply_writes_dns_and_rules_with_backups(tmp_path: Path) -> None:
     app = make_app(tmp_path, dns="dns:\n  enable: true\n  nameserver:\n  - https://8.8.8.8/dns-query#GLOBAL\n")
-    cv.apply(app, dry_run=False, stamp="20260101-000000")
+    cv.apply(app, dry_run=False, stamp="20260101-000000", platform="win32")
     dns = (app / "dns_config.yaml").read_text(encoding="utf-8")
     assert dns == cv.DNS_TEMPLATE
     assert (app / "dns_config.yaml.before-claude-antiban-20260101-000000.bak").exists()
     rules = (app / "profiles" / "rRules01.yaml").read_text(encoding="utf-8")
-    assert cv.prepend_entries(rules) == list(cv.PREPEND_RULES)
+    assert cv.prepend_entries(rules) == ["PROCESS-NAME,claude.exe,PROXY", *cv.PREPEND_RULES]
     assert (app / "profiles" / "rRules01.yaml.before-claude-antiban-20260101-000000.bak").exists()
     report = cv.status(app)
     assert report["dns_template"] and report["prepend_rules"]
@@ -430,6 +431,27 @@ def test_restore_puts_switch_files_back_and_restarts(tmp_path: Path) -> None:
     cv.restore(app, dry_run=False, controller=fake, ready=always_ready)
     assert "enable_tun_mode: true" in (app / "verge.yaml").read_text(encoding="utf-8")
     assert fake.events[0] == "stop" and fake.events[-1].startswith("start")
+
+
+def test_apply_with_browser_routes_it_and_claude_through_the_match_group(tmp_path: Path) -> None:
+    app = make_app(tmp_path, rules="prepend:\n- GEOSITE,cn,DIRECT\n- GEOIP,CN,DIRECT,no-resolve\nappend: []\n")
+    cv.apply(app, dry_run=False, stamp="s", browser="chrome", platform="win32")
+    entries = cv.prepend_entries((app / "profiles" / "rRules01.yaml").read_text(encoding="utf-8"))
+    assert entries == ["PROCESS-NAME,chrome.exe,PROXY", "PROCESS-NAME,claude.exe,PROXY", *cv.PREPEND_RULES]
+    assert cv.status(app)["process_rules"] == entries[:2]
+
+
+def test_apply_without_match_group_only_writes_china_rules(tmp_path: Path) -> None:
+    app = make_app(tmp_path, sub=THREE_PROXIES)  # 这个订阅没有 MATCH 规则
+    messages = cv.apply(app, dry_run=False, stamp="s", browser="chrome", platform="win32")
+    entries = cv.prepend_entries((app / "profiles" / "rRules01.yaml").read_text(encoding="utf-8"))
+    assert entries == list(cv.PREPEND_RULES)
+    assert any("MATCH" in m for m in messages)
+
+
+def test_verify_needs_the_process_rule_before_china_rules(tmp_path: Path) -> None:
+    late = RUNTIME_DONE.replace("- PROCESS-NAME,claude.exe,PROXY\n", "") + "- PROCESS-NAME,claude.exe,PROXY\n"
+    assert cv.verify(make_app(tmp_path, runtime=late))["ok"] is False
 
 
 def test_status_adds_what_windows_actually_has(tmp_path: Path) -> None:

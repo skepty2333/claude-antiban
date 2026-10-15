@@ -34,6 +34,27 @@ Claude 只看得到发往它服务器的连接。所以只需保证这三个入�
 - 代理软件（Clash、v2rayN 等）一律设成开机自启，平时不要手动退出；
 - 要退出时，先关掉 Claude 的网页和桌面端。
 
+### 国内直连留下的口子，和怎么堵
+
+规则模式下国内网站直连，任何网页或邮件只要让浏览器去请求一个国内地址（`geosite:cn` 里的域名，或国内 IP 字面量），这个请求就绕过代理，带着真实 IP 出去。ip.net.coffee 的「中国出口 IPv4」「网站分流测试」就是这样测的。Claude 有没有这样做，没有公开证据；但这个口子是分流规则自己开的，堵上的代价很小。
+
+做法：在国内直连规则**前面**加进程规则，让 Claude 专用的浏览器和 Claude 程序一律走兜底代理组（订阅里 `MATCH` 指向的组）：
+
+```yaml
+prepend:
+  - PROCESS-NAME,chrome.exe,PROXY     # 用户选的 Claude 专用浏览器
+  - PROCESS-NAME,claude.exe,PROXY     # Claude 桌面端、原生安装的 Claude Code
+  - GEOSITE,cn,DIRECT
+  - GEOIP,CN,DIRECT,no-resolve
+```
+
+`scripts/setup/clash_verge.py apply --browser <chrome|edge|firefox|brave>` 会按这个顺序写好，`verify` 检查 Clash 实际加载的规则里进程规则排在前面。
+
+- 不开 TUN 也有效：系统代理连接来自本机进程，mihomo 能查到是哪个进程。Windows 上实测过：把 `find-process-mode` 临时设为 `always`，管理接口里 `curl.exe`、`claude.exe` 的连接都带着进程名。规则里有进程规则时，默认的 `strict` 模式会自动去查。
+- 代价：这个浏览器上国内网站也绕到海外，所以要专用，国内网站用另一个浏览器。
+- 验收：在专用浏览器里打开 ip.net.coffee，「中国出口 IPv4」也应该是节点 IP。
+- macOS 的进程名（`Google Chrome Helper` 等）没在真机上验证过。v2rayN 做不了这种进程规则，路由选「全局」。
+
 可选：再加用户变量 `NODE_USE_ENV_PROXY=1`（Node 24+），让其他 Node 程序的 `fetch` 也认 `HTTPS_PROXY`。代价是 Clash 关掉时这些程序也会报错。
 
 ## 档位 B：TUN（虚拟网卡）+ 严格路由
