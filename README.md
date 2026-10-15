@@ -33,7 +33,9 @@ skill 是给 AI agent 用的。agent 读 [SKILL.md](SKILL.md)，和你分工把�
 你要做的事都写在 [SETUP.md](SETUP.md) 里，配了截图。AI 到了该你做的地方会停下来，告诉你看哪一节、做完回它什么。
 
 > [!WARNING]
-> **带你配置的 AI 最好不是 Claude**，比如用 Codex。换上你买的静态 IP 之前，电脑用的是真实 IP，或者临时代理那种很多人共用的 IP；这时用 Claude 来带，等于让你的 Claude 账号出现在这些 IP 上。一定要用 Claude Code 的话，先自己照 SETUP 第一节和第四节换上买好的 IP、设好代理变量，再让它开工。
+> **绝对不要用 Claude 来带你配置**，Claude Code、Claude 桌面端都不行。换上你买的静态 IP 之前，电脑用的是真实 IP，或者临时代理那种很多人共用的 IP，这时用 Claude，等于让你的 Claude 账号出现在这些 IP 上。
+>
+> 用别的 AI 都可以：WorkBuddy 这类国产 agent、接 DeepSeek 等国产模型的 agent 工具，或者 Codex 接你自己的 API。国产的 agent 不用代理就能联网，代理还没配好也能开工。
 >
 > 同样的道理，换上静态 IP 之前，也不要打开或登录 Claude 的网页和桌面端。
 

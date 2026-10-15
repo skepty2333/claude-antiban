@@ -7,7 +7,7 @@
 **适用范围**：Windows 10/11 + Clash Verge Rev。用 v2rayN 的看[附录 A](#附录-a用-v2rayn-的)，用 Mac 的看[附录 B](#附录-bmacos)。
 
 > [!CAUTION]
-> **第四节换上你买的静态 IP 之前，不要打开 Claude。** 网页、桌面端都不要开，也不要用 Claude 来带你做这些配置，用 Codex 这类别的 AI。在那之前，电脑用的要么是你的真实 IP，要么是临时代理那种很多人共用的 IP。
+> **第四节换上你买的静态 IP 之前，不要打开 Claude。** 网页、桌面端都不要开。**也绝对不要用 Claude 来带你做这些配置**，用国产的 agent，或者 Codex 接你自己的 API（见 README）。在那之前，电脑用的要么是你的真实 IP，要么是临时代理那种很多人共用的 IP。
 
 **AI 干活时需要你配合的几处**（为什么要这样，README 的「需要你配合的地方」里有解释）：
 
@@ -20,17 +20,17 @@
 
 ## 开始：把这个 skill 交给 AI
 
-1. 打开 `https://github.com/skepty2333/claude-antiban`，点绿色的「Code」→「Download ZIP」，解压。
-2. 把解压出来的文件夹改名为 `claude-antiban`，放进 AI 工具的 skills 文件夹。Codex 是 `C:\Users\你的用户名\.codex\skills\`，没有这个文件夹就新建一个。
-3. 对 AI 说"用 claude-antiban 帮我配置"。它会先测一遍你电脑现在的样子，然后带你往下做。
+1. 打开 `https://github.com/skepty2333/claude-antiban`，点绿色的「Code」→「Download ZIP」。
+2. 解压到一个好找的地方，文件夹改名为 `claude-antiban`，比如 `D:\claude-antiban`。你用的 AI 工具支持 skills 的，也可以放进它的 skills 文件夹（Codex 是 `C:\Users\你的用户名\.codex\skills\`）。
+3. 对 AI 说"读一下 `D:\claude-antiban\SKILL.md`，按它帮我配置"（路径换成你放的位置）。它会先测一遍你电脑现在的样子，然后带你往下做。
 
-一定要用 Claude Code 带的话（skills 文件夹是 `C:\Users\你的用户名\.claude\skills\`），先自己做完第一节和第四节，换上买好的 IP、设好代理变量，再启动它。
+带你配置的 AI 不能是 Claude，原因见 README「怎么开始」下面的提示。
 
 ## 一、让代理跑起来
 
 AI 跑完第一遍检测后，会请你做这一节。先用你手头现有的代理订阅（比如原来的机场），第四节再换成你买的静态 IP。已经装好 Clash Verge 的，AI 会告诉你哪几条可以跳过。
 
-1. **准备。** 找出你现在在用的那个代理订阅链接（`https://…`）。电脑上最后只留一个代理软件：Clash Verge 装好、能上网以后，再退出原来的代理客户端和加速器。退出时 AI 可能断线，重新打开它说"继续"就行。
+1. **准备。** 找出你现在在用的那个代理订阅链接（`https://…`）。电脑上最后只留一个代理软件：Clash Verge 装好、能上网以后，再退出原来的代理客户端和加速器。退出时 AI 如果断线了，重新打开它说"继续"就行。
 2. **装 Clash Verge Rev，导入订阅。**
    1. 到 GitHub 上的 `clash-verge-rev/clash-verge-rev`，进 Releases 页面，下载稳定版的 Windows x64 安装包（文件名带 `setup.exe`）并安装。安全软件拦截的话选允许。
    2. 打开 Clash Verge，在首页点「导入订阅」，粘贴订阅链接后导入。
@@ -59,13 +59,7 @@ AI 跑完第一遍检测后，会请你做这一节。先用你手头现有的�
    | 局域网连接 | 关 | 用不到 |
    | DNS 覆写 | 先不动 | AI 改好内容后，第二节再打开 |
 
-5. **设代理变量。** 用 Codex 这类别的 AI 带你配置的，这一条跳过，AI 会替你设。用 Claude Code 的，启动它之前自己设好：从开始菜单打开「终端」（或「PowerShell」），粘贴下面这行，回车。端口看 Clash「设置」页的「端口设置」，不是 7897 的，把两处 7897 换成你的数字。
-
-   ```powershell
-   'HTTPS_PROXY', 'HTTP_PROXY' | ForEach-Object { [Environment]::SetEnvironmentVariable($_, 'http://127.0.0.1:7897', 'User') }; [Environment]::SetEnvironmentVariable('NO_PROXY', 'localhost,127.0.0.1,::1', 'User')
-   ```
-
-   设好以后，关掉这个终端、新开一个再启动 Claude Code，旧终端读不到新设的变量。
+   给 Claude Code 用的代理变量由 AI 来设，这一节不用管。
 
 **怎么确认**：用浏览器打开 `https://ip.net.coffee/claude/`，显示的是节点所在的国家。做完回复 AI。
 
@@ -239,7 +233,7 @@ AI 告诉你最后一遍检测的"严重"为 0 以后，再做这一步。登录
    - 「系统代理」：选「自动配置系统代理」；
    - 「路由」：单节点选「绕过大陆」，需要全部走代理就选「全局」。
 
-   左下角的 `mixed:10808` 就是端口号，第一节第 5 条的命令里把 7897 换成 10808。
+   左下角的 `mixed:10808` 就是端口号，AI 问起端口时告诉它这个数字。
 
    ![系统代理设置](assets/v2rayn-3-system-proxy.png)
 
@@ -248,14 +242,8 @@ AI 告诉你最后一遍检测的"严重"为 0 以后，再做这一步。登录
 ## 附录 B：macOS
 
 - **Clash Verge Rev**：下载 macOS 版，Apple 芯片选 aarch64，Intel 芯片选 x64。第一节第 2 到第 4 条和第四节的界面和 Windows 一样，同样要打开「开机自启」。如果没生效，在 系统设置 → 通用 → 登录项 里把它加进去。
-- **第一节第 5 条（代理变量）**：打开「终端」，粘贴下面这行回车（端口不是 7897 的换成你的）：
-
-  ```bash
-  printf '%s\n' '# >>> claude-antiban proxy >>>' 'export HTTPS_PROXY=http://127.0.0.1:7897' 'export HTTP_PROXY=http://127.0.0.1:7897' 'export NO_PROXY=localhost,127.0.0.1,::1' '# <<< claude-antiban proxy <<<' >> ~/.zshrc
-  ```
-
-- **skills 文件夹**：Codex 是 `~/.codex/skills/`，Claude Code 是 `~/.claude/skills/`。
-- **带 `sudo` 的命令**：关 IPv6、改时区要输入开机密码，AI 会把命令给你，需要你自己在「终端」里运行。
+- **skill 放哪**：解压到一个好找的地方，比如 `~/claude-antiban`；Codex 的 skills 文件夹是 `~/.codex/skills/`。
+- **带 `sudo` 的命令**：关 IPv6、改时区要输入开机密码，AI 会把命令给你，需要你自己在「终端」里运行。代理变量 AI 自己就能设，不用你管。
 - **厂商字体**：AI 会告诉你是哪几款，你在「字体册」里自己移除。
 - **浏览器**：Chrome 的设置和 Windows 一样；Safari 默认不泄露 WebRTC。
 
