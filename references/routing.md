@@ -31,7 +31,7 @@ Claude 只看得到发往它服务器的连接。所以只需保证这三个入�
 
 **但浏览器和桌面端不一样**：Clash Verge 正常退出时会主动关掉 Windows 的系统代理（源码里停止内核时调用 `proxy_control::clear`），浏览器随即用真实 IP 直连。只有 Clash 崩溃或被强杀时，系统代理设置才会留着，浏览器才会报错。所以：
 
-- 开机自启 Clash，平时不要手动退出；
+- 代理软件（Clash、v2rayN 等）一律设成开机自启，平时不要手动退出；
 - 要退出时，先关掉 Claude 的网页和桌面端。
 
 可选：再加用户变量 `NODE_USE_ENV_PROXY=1`（Node 24+），让其他 Node 程序的 `fetch` 也认 `HTTPS_PROXY`。代价是 Clash 关掉时这些程序也会报错。
