@@ -29,9 +29,10 @@
 ## 第 0 步：准备
 
 1. **一个独享的静态 IP 节点。** 选购标准见 `references/ip.md`：独享、IP 固定不变、在 Anthropic 支持的地区、住宅或 ISP 类型优先。卖家会给你一个订阅链接（`https://…`，Clash 用）或一个节点链接（`vless://…`，v2rayN 用）。**不要外传，也不要和别人共用。**
-2. **电脑上只留一个代理软件。** 其他代理客户端全部退出，两个同时开会抢端口。
-3. **下载 Clash Verge Rev**：到 GitHub 上的 `clash-verge-rev/clash-verge-rev`，进 Releases 页面，下载稳定版的 Windows x64 安装包（文件名带 `setup.exe`）并安装。如果安全软件拦截，选择允许；拦得太凶，可以在安装期间临时关掉它。
-4. **安装 Python 3.9 或更高版本**，后面的自检脚本要用：到 python.org 下载，安装时勾选 "Add python.exe to PATH"。装好后新开一个终端，输入 `python --version`，能看到版本号就行。
+2. **Claude 账号**：可以现在就买好，但**第 8 步自检通过之前不要登录**。去哪买、会员怎么开，见[第 9 步](#第-9-步登录-claude开通会员)。
+3. **电脑上只留一个代理软件。** 其他代理客户端全部退出，两个同时开会抢端口。
+4. **下载 Clash Verge Rev**：到 GitHub 上的 `clash-verge-rev/clash-verge-rev`，进 Releases 页面，下载稳定版的 Windows x64 安装包（文件名带 `setup.exe`）并安装。如果安全软件拦截，选择允许；拦得太凶，可以在安装期间临时关掉它。
+5. **安装 Python 3.9 或更高版本**，后面的自检脚本要用：到 python.org 下载，安装时勾选 "Add python.exe to PATH"。装好后新开一个终端，输入 `python --version`，能看到版本号就行。
 
 ## 第 1 步：导入订阅
 
@@ -334,7 +335,17 @@ python scripts\selfcheck.py
 
 5. **指纹评分**：`https://fuck-claude.vercel.app/zh/`，点「开始检测」，分数越低越好。
 
-## 第 9 步：日常使用习惯
+## 第 9 步：登录 Claude、开通会员
+
+第 8 步的"严重"为 0 之后再做这一步。登录时用的是哪个 IP、什么样的环境，Claude 那边都看得到，所以要等环境配好了再登录。
+
+- **账号**：自己注册，或者买一个现成的普号。买的话可以先在 [PriceAI](https://priceai.cc/channels?platform=Claude) 上比价，它汇总了各家卡网的 Claude 报价，本身不卖东西。下单前看清店铺的售后说明。
+- **登录**：用第 6 步设置好的浏览器登录，登录前确认 Clash 开着。
+- **会员**：一般是用美区 Apple ID 兑换 Apple 礼品卡，再在 Claude 的 iOS App 里订阅。这一步要在 iPhone 上登录 Claude，手机的注意事项见第 10 步最后一条。
+
+**怎么确认**：网页上能正常对话；开了会员的，在设置里能看到会员状态。
+
+## 第 10 步：日常使用习惯
 
 - **开机后**：Clash 会自动连上。等任务栏右下角出现 Clash 图标，再打开浏览器访问 Claude。
 - **"关窗口"不是"退出"**：
@@ -343,9 +354,9 @@ python scripts\selfcheck.py
 - **Claude 开着的时候，不要退出 Clash。** Clash 退出时会顺手关掉系统代理，浏览器和桌面端会改用真实 IP 连接。要退出，先关掉 Claude 的网页和桌面端。
 - **节点固定**，不要来回切换。一个 IP 只登录一个 Claude 账号。
 - **出现以下情况后，跑一次自检**：换了网络（换 Wi-Fi、出差）、更新了订阅、换了节点。更新订阅后，原来选中的节点可能失效，要回第 2 步确认。
-- **手机**：不建议用手机登录 Claude。必须用的话，先拔掉 SIM 卡或打开飞行模式，再连 Wi-Fi 并开启代理。
+- **手机**：手机也是一个 Claude 入口，平时尽量不在手机上用。要用的话（包括第 9 步在 iOS App 里订阅），先拔掉 SIM 卡或打开飞行模式，再连 Wi-Fi，并开启代理，让手机也从同一个节点出去。
 
-## 第 10 步：安装和使用 Claude Code（需要的话）
+## 第 11 步：安装和使用 Claude Code（需要的话）
 
 - **什么时候装**：第 8 步自检通过之后。
 - **怎么装**：按 Anthropic 官方文档安装。在 Windows 上，一般要先装 Git for Windows。
@@ -387,7 +398,7 @@ python scripts\selfcheck.py
    ![系统代理设置](assets/v2rayn-3-system-proxy.png)
 
 4. **设成开机自启**：在「设置 → 参数设置」里勾选「开机自动启动」（不同版本位置略有不同）。和 Clash 一样，代理软件必须开机自启。
-5. v2rayN 没有第 3 步里的 DNS 覆写，DNS 设置保持默认即可。第 4 步到第 10 步照常做。
+5. v2rayN 没有第 3 步里的 DNS 覆写，DNS 设置保持默认即可。第 4 步到第 11 步照常做。
 
 ## 附录 B：macOS
 

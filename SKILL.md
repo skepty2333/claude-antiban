@@ -1,6 +1,6 @@
 ---
 name: claude-antiban
-description: Use when a user (often in mainland China) wants to set up a computer from scratch for using Claude safely, or worries about Claude, claude.ai or Claude Code account bans or risk control, or wants to check or fix that environment - Clash Verge / v2rayN setup, proxy routing, exit IP quality, DNS leaks, WebRTC leaks (WebRTC Network Limiter), IPv6, timezone or language consistency, or the browser "China user" fingerprint score from fuck-claude. Triggers include Claude 防封, 封号, 风控, 从零配置, 新电脑配置代理, 环境检测, IP 纯净度, DNS 泄漏, WebRTC 泄漏, 时区对不对, 指纹, 中国用户检测.
+description: Use when a user (often in mainland China) wants to set up a computer from scratch for using Claude safely, or worries about Claude, claude.ai or Claude Code account bans or risk control, or wants to check or fix that environment - Clash Verge / v2rayN setup, proxy routing, exit IP quality, DNS leaks, WebRTC leaks (WebRTC Network Limiter), IPv6, timezone or language consistency, or the browser "China user" fingerprint score from fuck-claude, or asks what to buy first (static IP, Claude account or subscription). Triggers include Claude 防封, 封号, 风控, 从零配置, 要买什么, 买号, 新电脑配置代理, 环境检测, IP 纯净度, DNS 泄漏, WebRTC 泄漏, 时区对不对, 指纹, 中国用户检测.
 ---
 
 # Claude 防封环境：从零配置，并用实测出口验收
@@ -27,20 +27,44 @@ Claude 能看到的只有两样东西：发往它服务器的连接，和浏览�
 - **新电脑或还没配过**（"从零配置""教我配""WebRTC 扩展怎么设"）→ 走**配置流程**。
 - **已经配过，想检查或排障**（"帮我查查""是不是泄漏了""时区对不对"）→ 走**体检流程**。
 
+## 和用户分工：到交接点就停
+
+技术活由你做：跑脚本、读自检结果、对照文档讲解。下面这些只能用户本人做。到了这些地方，这条回复只做交接，然后停下等用户回复，不要接着往下做。
+
+| 交接点 | 用户要做的 |
+|---|---|
+| **开场**（配置流程的第一条回复） | 读 `README.md`，弄懂思路；按 README「要买的东西」买独享静态 IP 和 Claude 账号；装好 Clash Verge（或 v2rayN）和 Python。提醒他：账号先别登录 |
+| **图形界面**（第 1–3 步、第 6 步；v2rayN 是附录 A） | 照 `SETUP.md` 的截图在界面上操作 |
+| **管理员终端**（第 5 步） | 自己打开管理员终端，运行你给的命令 |
+| **自检通过后**（第 9 步） | 用配好的浏览器注册或登录 Claude；要开会员的，按 `SETUP.md` 第 9 步去开 |
+
+交接时一次只交一步，按这个格式写：
+
+```
+**现在到了**：第 X 步，<这一步是干什么的，一句话>
+**该你做了**：<要做的事，附链接或截图的完整路径>
+**做完回我**：<要用户回复什么，比如"好了"、界面截图、某个数字>
+```
+
+不要替用户下单付款，也不要向用户要订阅链接、账号或密码。
+
 ## 配置流程：按 `SETUP.md` 一步一步带
 
-`SETUP.md` 是给人看的完整教程：第 0 步到第 9 步，外加 v2rayN、macOS、虚拟机、TUN 四个附录。每步都有截图（`assets/`）和"怎么确认"。
+`SETUP.md` 是给人看的完整教程：第 0 步到第 11 步，外加 v2rayN、macOS、虚拟机、TUN 四个附录。每步都有截图（`assets/`）和"怎么确认"。
 
-1. 先问清楚三件事：
+1. 第一条回复就是开场交接。除了上表里的事，再问清楚三件事：
    - 用 Clash Verge 还是 v2rayN；
    - Windows 还是 macOS；
    - 平时用哪个浏览器登录 Claude。
+
+   用户说已经准备好了，就直接从第 1 步开始。
 2. 一次只带一步，做完这步的"怎么确认"再进下一步。
    - **图形界面的步骤**（导入订阅、选节点、Clash 设置、装扩展）：照 `SETUP.md` 讲给用户，并告诉用户对应截图的完整路径（在 `assets/` 里）；界面支持发送文件的话，直接发过去。用户的界面和截图对不上时，请他截一张自己的界面回来，再对照着讲。
    - **能用脚本的步骤**（第 4 步代理变量、第 5 步关 IPv6、第 7 步时区）：命令里一律写**脚本的绝对路径**。先用 `-WhatIf` 或 `--dry-run` 预演给用户看，用户同意后再执行。第 5 步要管理员权限，请用户自己开管理员终端；`-NetworkTask` 默认会把网卡 DNS 固定为 `1.1.1.1`/`8.8.8.8`；用户经常连需要网页登录的 Wi-Fi 时，加 `-KeepDns`。
    - **代理软件必须开机自启**，不管是 Clash Verge 还是 v2rayN。做第 3 步时（v2rayN 是附录 A），务必确认用户打开了开机自启。
 3. 第 4 步之后有个"检查点"：运行 `python scripts/selfcheck.py --skip-browser`。出口国家不对，或者 IP 有滥用记录，就先停下，让用户找卖家处理。这次输出里 IP 库的多数结果，第 7 步对时区还要用。
-4. 最后做第 8 步完整自检。"严重"为 0、主要项都是 [OK]，才算配置完成。
+4. 做第 8 步完整自检。"严重"为 0、主要项都是 [OK]，环境才算配好。
+5. 然后是第 9 步的交接：用户登录 Claude、开会员。用户需要 Claude Code 的话，再带第 11 步。
 
 ## 体检流程
 
