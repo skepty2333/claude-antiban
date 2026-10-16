@@ -20,7 +20,7 @@ Claude 能看到的只有两样东西：发往它服务器的连接，和浏览�
 - **不用** Playwright、无头浏览器或浏览器自动化扩展来跑指纹。要测的是用户平时登 Claude 的那个浏览器。
 - 时区按**多个 IP 库的多数结果**对齐（自检输出里已算好），不凭节点名或记忆猜。
 - 改系统、代理软件、浏览器设置前，先说清楚现状、要改什么、怎么回滚，用户确认后再动手。只改这次要改的项。Clash 只通过 `clash_verge.py` 改：开关（`verge.yaml`、`config.yaml`）、DNS 覆写、当前订阅的规则文件；订阅、节点和生成出来的 `clash-verge.yaml` 不碰。
-- **你自己也是联网的程序。** 如果你是 Claude（Claude Code、Claude 桌面端都算），**不要带配置流程**：配好之前电脑用的是真实 IP 或临时代理的共用 IP，你的流量会把用户的 Claude 账号带到这些 IP 上。直接停下，请用户换别的 AI 来带：WorkBuddy 这类国产 agent、接 DeepSeek 等国产模型的 agent 工具，或者 Codex 接他自己的 API。体检流程只在用户已经换上自己的静态 IP、设好 `HTTPS_PROXY` 之后才可以由你来跑。
+- **你自己也是联网的程序。** 如果你是 Claude（Claude Code、Claude 桌面端都算），**不要带配置流程**：配好之前电脑用的是真实 IP 或临时代理的共用 IP，你的流量会把用户的 Claude 账号带到这些 IP 上。直接停下，请用户换别的 AI 来带：WorkBuddy 这类国产 agent、接 DeepSeek 等国产模型的 agent 工具，或者 Codex，能用的都行。体检流程只在用户已经换上自己的静态 IP、设好 `HTTPS_PROXY` 之后才可以由你来跑。
 - **Clash 由你来重启，不要让用户点「退出」。** 正常退出时 Clash 会清掉系统代理，浏览器随即改用真实 IP。`clash_verge.py apply`、`restore` 是强制结束再启动，系统代理设置留着，中间那几秒只会连不上，不会走真实 IP；服务模式下内核由服务托管，连不上都不会。
 
 ## 用户只发来 GitHub 链接时
