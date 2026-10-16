@@ -92,8 +92,11 @@ WebRTC 是浏览器做音视频通话用的功能。它会绕过代理，直接�
 
 ### 2.2 关闭"安全 DNS"
 
-- **Chrome**：地址栏输入 `chrome://settings/security`，关闭「使用安全 DNS」。
-- **Edge**：地址栏输入 `edge://settings/privacy`，在「安全性」里关闭「使用安全 DNS」。
+- **Chrome**：地址栏输入 `chrome://settings/security`，往下翻到「高级」，关闭「使用安全 DNS」（英文界面叫 Use secure DNS）。
+
+  ![Chrome 关闭安全 DNS](assets/chrome-secure-dns.png)
+
+- **Edge**：地址栏输入 `edge://settings/privacy`，先点开「安全性」，再关闭里面的「使用安全的 DNS」。
 - **Firefox**：设置 → 隐私与安全 → 基于 HTTPS 的 DNS，选「关闭」。
 
 ### 2.3 浏览器语言（两处都要改）

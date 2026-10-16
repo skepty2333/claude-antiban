@@ -35,7 +35,7 @@ Claude 能看到的只有两样东西：发往它服务器的连接，和浏览�
 | 交接 | 用户要做的 | 发给用户 |
 |---|---|---|
 | **A 让代理跑起来** | 装 Clash Verge，导入他现在在用的订阅，选节点和模式 | `SETUP.md`「一、让代理跑起来」，截图 `assets/clash-1-import-subscription.png` 到 `assets/clash-3-node-mode.png` |
-| **B 浏览器** | 在 Claude 专用的浏览器里装 WebRTC 扩展、关安全 DNS、改语言、防开机抢跑；以后网页版 Claude 只用这一个浏览器，国内网站用另一个 | `SETUP.md`「二、浏览器设置」，截图 `assets/webrtc-1-store.png` 到 `assets/webrtc-4-use-proxy.png` |
+| **B 浏览器** | 在 Claude 专用的浏览器里装 WebRTC 扩展、关安全 DNS、改语言、防开机抢跑；以后网页版 Claude 只用这一个浏览器，国内网站用另一个 | `SETUP.md`「二、浏览器设置」，截图 `assets/webrtc-1-store.png` 到 `assets/webrtc-4-use-proxy.png`，安全 DNS 是 `assets/chrome-secure-dns.png` |
 | **C 换上静态 IP** | **这时必须已经买好 IP**；导入新订阅、选节点和模式、删掉临时订阅 | `SETUP.md`「三、换上你买的静态 IP」；还没买的，发 `README.md`「要买的东西」 |
 | **D 登录** | **这时必须已经有 Claude 账号**；登录，不在手机上装 Claude App；普号登录后先正常用至少 72 小时再充会员 | `SETUP.md`「五、登录 Claude」。交接时把 72 小时这一条单独说一遍 |
 
