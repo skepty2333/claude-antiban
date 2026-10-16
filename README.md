@@ -18,7 +18,7 @@ skill 是给 AI agent 用的。agent 读 [SKILL.md](SKILL.md)，和你分工把�
 > [!IMPORTANT]
 > **好物推荐：[PriceAI](https://priceai.cc/channels?platform=Claude)**。这里可以买到各类账号、订阅，还有接码等衍生服务产品。
 
-下完单不用干等，直接让 AI 开工。也不用下载什么，把这个仓库的链接发给它，对它说：
+你能正常打开 GitHub 看到这一页，就不用下载什么，直接把这个仓库的链接发给 AI，对它说：
 
 > 按 https://github.com/skepty2333/claude-antiban 这个 skill 帮我配置
 
