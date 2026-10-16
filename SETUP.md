@@ -25,7 +25,7 @@ AI 跑完第一遍检测后，会请你做这一节。先用你手头现有的�
 
 1. **准备。** 找出你现在在用的那个代理订阅链接（`https://…`）。电脑上最后只留一个代理软件：Clash Verge 装好、能上网以后，再退出原来的代理客户端和加速器。退出时 AI 如果断线了，重新打开它说"继续"就行。
 2. **装 Clash Verge Rev，导入订阅。**
-   1. 到 GitHub 上的 `clash-verge-rev/clash-verge-rev`，进 Releases 页面，下载稳定版的 Windows x64 安装包（文件名带 `setup.exe`）并安装。安全软件拦截的话选允许。
+   1. 打开 [Clash Verge Rev 的 Releases 页面](https://github.com/clash-verge-rev/clash-verge-rev/releases)，下载稳定版的 Windows x64 安装包（文件名带 `setup.exe`）并安装。安全软件拦截的话选允许。
    2. 打开 Clash Verge，在首页点「导入订阅」，粘贴订阅链接后导入。
 
       ![导入订阅](assets/clash-1-import-subscription.png)

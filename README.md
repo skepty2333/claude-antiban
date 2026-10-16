@@ -29,7 +29,7 @@ skill 是给 AI agent 用的。agent 读 [SKILL.md](SKILL.md)，和你分工把�
 | 步骤 | AI 做 | 你做 |
 |---|---|---|
 | 1. 先测一遍 | 跑检测，讲清现在有哪些问题 | 检测页弹出来别关 |
-| 2. 让代理跑起来 | 改好 Clash 的开关，设代理变量 | 装好 Clash，导入你现有的订阅，选节点（现在的 VPN 能正常用就先跳过，需要换成 Clash 时 AI 会告诉你） |
+| 2. 让代理跑起来 | 改好 Clash 的开关，设代理变量 | 装好 [Clash Verge Rev](https://github.com/clash-verge-rev/clash-verge-rev)，导入你现有的订阅，选节点（平时用的 VPN 本来就是 Clash Verge Rev 的，跳过） |
 | 3. 分流规则、DNS 覆写 | 写好配置，重启 Clash 让它生效 | 告诉 AI 你专门用哪个浏览器登录 Claude |
 | 4. 关 IPv6、固定网卡 DNS | 运行设置 | 管理员确认点「是」 |
 | 5. 清理厂商字体 | 列出来，讲清影响 | 决定删不删；同意后点「是」，删完重启 |
