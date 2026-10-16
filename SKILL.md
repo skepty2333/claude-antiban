@@ -23,6 +23,10 @@ Claude 能看到的只有两样东西：发往它服务器的连接，和浏览�
 - **你自己也是联网的程序。** 如果你是 Claude（Claude Code、Claude 桌面端都算），**不要带配置流程**：配好之前电脑用的是真实 IP 或临时代理的共用 IP，你的流量会把用户的 Claude 账号带到这些 IP 上。直接停下，请用户换别的 AI 来带：WorkBuddy 这类国产 agent、接 DeepSeek 等国产模型的 agent 工具，或者 Codex 接他自己的 API。体检流程只在用户已经换上自己的静态 IP、设好 `HTTPS_PROXY` 之后才可以由你来跑。
 - **Clash 由你来重启，不要让用户点「退出」。** 正常退出时 Clash 会清掉系统代理，浏览器随即改用真实 IP。`clash_verge.py apply`、`restore` 是强制结束再启动，系统代理设置留着，中间那几秒只会连不上，不会走真实 IP；服务模式下内核由服务托管，连不上都不会。
 
+## 用户只发来 GitHub 链接时
+
+脚本要在本地跑，先把仓库拉下来：`git clone https://github.com/skepty2333/claude-antiban "<用户主目录>/claude-antiban"`。没有 git 的话，下载 `https://github.com/skepty2333/claude-antiban/archive/refs/heads/main.zip` 解压到同一个位置。之后下文的 `<skill>` 就指这个目录。告诉用户放在哪了，不用让他自己下载。
+
 ## 先判断用户要哪一种
 
 - **新电脑或还没配过**（"从零配置""教我配""WebRTC 扩展怎么设"）→ 走**配置流程**。

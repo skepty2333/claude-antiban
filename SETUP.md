@@ -21,9 +21,11 @@
 
 ## 开始：把这个 skill 交给 AI
 
-1. 打开 `https://github.com/skepty2333/claude-antiban`，点绿色的「Code」→「Download ZIP」。
-2. 解压到一个好找的地方，文件夹改名为 `claude-antiban`，比如 `D:\claude-antiban`。你用的 AI 工具支持 skills 的，也可以放进它的 skills 文件夹（Codex 是 `C:\Users\你的用户名\.codex\skills\`）。
-3. 对 AI 说"读一下 `D:\claude-antiban\SKILL.md`，按它帮我配置"（路径换成你放的位置）。它会先测一遍你电脑现在的样子，然后带你往下做。
+你能打开 GitHub 看到这一页，就不用下载什么，直接把链接发给 AI，对它说：
+
+> 按 https://github.com/skepty2333/claude-antiban 这个 skill 帮我配置
+
+它会自己把 skill 拉到电脑上，先测一遍你电脑现在的样子，然后带你往下做。
 
 带你配置的 AI 不能是 Claude，原因见 README「怎么开始」下面的提示。
 
@@ -234,7 +236,6 @@ AI 告诉你最后一遍检测的"严重"为 0 以后，再做这一步。登录
 ## 附录 B：macOS
 
 - **Clash Verge Rev**：下载 macOS 版，Apple 芯片选 aarch64，Intel 芯片选 x64。第一节第 2、3 条和第三节的界面和 Windows 一样，开关由 AI 来改。开机自启如果没生效，在 系统设置 → 通用 → 登录项 里把它加进去。
-- **skill 放哪**：解压到一个好找的地方，比如 `~/claude-antiban`；Codex 的 skills 文件夹是 `~/.codex/skills/`。
 - **带 `sudo` 的命令**：关 IPv6、改时区要输入开机密码，AI 会把命令给你，需要你自己在「终端」里运行。代理变量 AI 自己就能设，不用你管。
 - **厂商字体**：AI 会告诉你是哪几款，你在「字体册」里自己移除。
 - **浏览器**：Chrome 的设置和 Windows 一样；Safari 默认不泄露 WebRTC。
