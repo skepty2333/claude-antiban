@@ -43,11 +43,9 @@ skill 是给 AI agent 用的。agent 读 [SKILL.md](SKILL.md)，和你分工把�
 | 10. 登录 Claude | — | **登录前准备好账号**，然后登录；先正常用 72 小时再充会员 |
 
 > [!WARNING]
-> **绝对不要用 Claude 来带你配置**，Claude Code、Claude 桌面端都不行。换上你买的静态 IP 之前，电脑用的是真实 IP，或者临时代理那种很多人共用的 IP，这时用 Claude，等于让你的 Claude 账号出现在这些 IP 上。
+> **换上你买的静态 IP 之前，不要动你真正的 Claude 账号和订阅。** 网页、桌面端、Claude Code 都不要用它登录。在那之前，电脑用的是真实 IP，或者临时代理那种很多人共用的 IP，账号一登录，就会出现在这些 IP 上。
 >
-> 用别的 AI 都可以：WorkBuddy 这类国产 agent、接 DeepSeek 等国产模型的 agent 工具，或者 Codex，能用的都行。国产的 agent 不用代理就能联网，代理还没配好也能开工。
->
-> 同样的道理，换上静态 IP 之前，也不要打开或登录 Claude 的网页和桌面端。
+> 带你配置的 AI 用什么都行：WorkBuddy、Codex 这类 agent，或者 Claude Code 配上你自己的 API，能用的都行，只要不登录你的 Claude 账号。
 
 ## 需要你配合的地方
 
