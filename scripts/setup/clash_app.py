@@ -1,4 +1,4 @@
-"""Clash Verge Rev 程序本身：找到它、重启它、等它就绪；读系统里实际生效的代理和开机自启。
+"""Clash Verge 程序本身：找到它、重启它、等它就绪；读系统里实际生效的代理和开机自启。
 
 重启用"强制结束再启动"：强制结束不会清掉 Windows 的系统代理设置，Clash 没起来的那几秒，
 浏览器只会连不上，不会改用真实 IP。服务模式下内核由服务托管，界面重启期间代理照常可用。
@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Callable, Mapping, Protocol
 
 PROCESS = "clash-verge"
-TASK_NAME = "Clash Verge"  # Clash Verge Rev 在 Windows 上用这个计划任务做开机自启
+TASK_NAME = "Clash Verge"  # Clash Verge 在 Windows 上用这个计划任务做开机自启
 RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
 INTERNET_KEY = r"Software\Microsoft\Windows\CurrentVersion\Internet Settings"
 

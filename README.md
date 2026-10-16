@@ -29,7 +29,7 @@ skill 是给 AI agent 用的。agent 读 [SKILL.md](SKILL.md)，和你分工把�
 | 步骤 | AI 做 | 你做 |
 |---|---|---|
 | 1. 先测一遍 | 跑检测，讲清现在有哪些问题 | 检测页弹出来别关 |
-| 2. 让代理跑起来 | 改好 Clash 的开关，设代理变量 | 装好 [Clash Verge Rev](https://github.com/clash-verge-rev/clash-verge-rev)，导入你现有的订阅，选节点（平时用的 VPN 本来就是 Clash Verge Rev 的，跳过） |
+| 2. 让代理跑起来 | 改好 Clash 的开关，设代理变量 | 装好 [Clash Verge](https://github.com/clash-verge-rev/clash-verge-rev)，导入你现有的订阅，选节点（平时用的 VPN 本来就是 Clash Verge 的，跳过） |
 | 3. 分流规则、DNS 覆写 | 写好配置，重启 Clash 让它生效 | 告诉 AI 你专门用哪个浏览器登录 Claude |
 | 4. 关 IPv6、固定网卡 DNS | 运行设置 | 管理员确认点「是」 |
 | 5. 清理厂商字体 | 列出来，讲清影响 | 决定删不删；同意后点「是」，删完重启 |
@@ -101,7 +101,7 @@ Claude 能用来判断你的，主要有两样东西：
 
 **谁来做**：你装 Clash、导入订阅、选节点，先用你手头现有的订阅，第 7 步再换成买的 IP。下面这些开关和代理变量，AI 会直接改好，再重启 Clash 让它生效。
 
-这里以 Clash Verge Rev 为例。v2rayN 和 macOS 版的 Clash Verge Rev 也覆盖到了，操作大同小异，不再赘述，见 [SETUP.md](SETUP.md) 的附录。
+这里以 Clash Verge 为例。v2rayN 和 macOS 版的 Clash Verge 也覆盖到了，操作大同小异，不再赘述，见 [SETUP.md](SETUP.md) 的附录。
 
 **打开系统代理，不开虚拟网卡（TUN）。** 浏览器和 Claude 桌面端都按 Windows 系统代理上网，打开系统代理，这两个入口就走节点了。很多教程让开 TUN。TUN 会接管所有程序的流量，但代价不小：
 

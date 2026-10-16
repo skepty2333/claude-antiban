@@ -1,4 +1,4 @@
-"""Tests for scripts/setup/clash_verge.py, run against a fake Clash Verge Rev app directory."""
+"""Tests for scripts/setup/clash_verge.py, run against a fake Clash Verge app directory."""
 from __future__ import annotations
 
 import json

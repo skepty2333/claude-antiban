@@ -4,7 +4,7 @@
 
 怎么让 AI 开工，见 README 的「怎么开始」。它做到需要你的地方会停下来，告诉你看这里的哪一节，照着做完回复它就行。
 
-**适用范围**：Windows 10/11 + Clash Verge Rev。用 v2rayN 的看[附录 A](#附录-a用-v2rayn-的)，用 Mac 的看[附录 B](#附录-bmacos)。
+**适用范围**：Windows 10/11 + Clash Verge。用 v2rayN 的看[附录 A](#附录-a用-v2rayn-的)，用 Mac 的看[附录 B](#附录-bmacos)。
 
 > [!CAUTION]
 > **第三节换上你买的静态 IP 之前，不要打开 Claude。** 网页、桌面端都不要开。**也绝对不要用 Claude 来带你做这些配置**，用国产的 agent，或者 Codex 接你自己的 API（见 README）。在那之前，电脑用的要么是你的真实 IP，要么是临时代理那种很多人共用的 IP。
@@ -24,8 +24,8 @@
 AI 跑完第一遍检测后，会请你做这一节。先用你手头现有的代理订阅（比如原来的机场），第三节再换成你买的静态 IP。已经装好 Clash Verge 的，AI 会告诉你哪几条可以跳过。
 
 1. **准备。** 找出你现在在用的那个代理订阅链接（`https://…`）。电脑上最后只留一个代理软件：Clash Verge 装好、能上网以后，再退出原来的代理客户端和加速器。退出时 AI 如果断线了，重新打开它说"继续"就行。
-2. **装 Clash Verge Rev，导入订阅。**
-   1. 打开 [Clash Verge Rev 的 Releases 页面](https://github.com/clash-verge-rev/clash-verge-rev/releases)，下载稳定版的 Windows x64 安装包（文件名带 `setup.exe`）并安装。安全软件拦截的话选允许。
+2. **装 Clash Verge，导入订阅。**
+   1. 打开 [Clash Verge 的 Releases 页面](https://github.com/clash-verge-rev/clash-verge-rev/releases)，下载稳定版的 Windows x64 安装包（文件名带 `setup.exe`）并安装。安全软件拦截的话选允许。
    2. 打开 Clash Verge，在首页点「导入订阅」，粘贴订阅链接后导入。
 
       ![导入订阅](assets/clash-1-import-subscription.png)
@@ -225,7 +225,7 @@ AI 告诉你最后一遍检测的"严重"为 0 以后，再做这一步。登录
 
 ## 附录 B：macOS
 
-- **Clash Verge Rev**：下载 macOS 版，Apple 芯片选 aarch64，Intel 芯片选 x64。第一节第 2、3 条和第三节的界面和 Windows 一样，开关由 AI 来改。开机自启如果没生效，在 系统设置 → 通用 → 登录项 里把它加进去。
+- **Clash Verge**：下载 macOS 版，Apple 芯片选 aarch64，Intel 芯片选 x64。第一节第 2、3 条和第三节的界面和 Windows 一样，开关由 AI 来改。开机自启如果没生效，在 系统设置 → 通用 → 登录项 里把它加进去。
 - **带 `sudo` 的命令**：关 IPv6、改时区要输入开机密码，AI 会把命令给你，需要你自己在「终端」里运行。代理变量 AI 自己就能设，不用你管。
 - **厂商字体**：AI 会告诉你是哪几款，你在「字体册」里自己移除。
 - **浏览器**：Chrome 的设置和 Windows 一样；Safari 默认不泄露 WebRTC。

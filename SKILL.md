@@ -182,4 +182,4 @@ macOS 没有这个脚本：请用户在「字体册」里找到这些字体，�
 - `scripts/vendor/fuckclaude-signals.js` 来自 `LinXiaoTao/FuckClaude`（MIT 许可）。上游改了评分规则时，用 `scripts/update_fuckclaude_signals.py` 同步：先只看 commit，再用 `--commit` 构建，最后加 `--yes` 写入。
 - `assets/` 里的截图改编自第三方配置教程：已打码，并按本路线重新标注。Clash Verge 界面改版后需要重新截图。
 - `scripts/setup/fonts.py` 的名单直接从 `vendor/fuckclaude-signals.js` 的 `FONTS_CN_VENDOR` 读，同步上游规则后自动跟着变；上游改了变量名，脚本会报错。
-- `scripts/setup/clash_verge.py` 依赖 Clash Verge Rev 的配置文件布局：`profiles.yaml` 里的 `current` 和 `option.rules`、`dns_config.yaml`、生成出来的 `clash-verge.yaml`。Clash Verge 大改版后要核对一遍。
+- `scripts/setup/clash_verge.py` 依赖 Clash Verge 的配置文件布局：`profiles.yaml` 里的 `current` 和 `option.rules`、`dns_config.yaml`、生成出来的 `clash-verge.yaml`。Clash Verge 大改版后要核对一遍。

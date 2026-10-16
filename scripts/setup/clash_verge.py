@@ -1,4 +1,4 @@
-"""Clash Verge Rev：读开关状态；改开关、DNS 覆写和前置规则，再重启 Clash 让它生效。
+"""Clash Verge：读开关状态；改开关、DNS 覆写和前置规则，再重启 Clash 让它生效。
 
 只用标准库。会改四个文件：verge.yaml、config.yaml（开关）、dns_config.yaml（DNS 覆写）、
 当前订阅的规则文件（前置规则，见 clash_rules.py），改之前都会备份。verge.yaml 和 config.yaml
@@ -94,7 +94,7 @@ class Check:
 
 def find_app_dir(override: str | None, env: Mapping[str, str] = os.environ,
                  platform: str = sys.platform, home: Path | None = None) -> Path | None:
-    """返回 Clash Verge Rev 的配置目录；找不到返回 None。"""
+    """返回 Clash Verge 的配置目录；找不到返回 None。"""
     if override:
         path = Path(override)
         return path if path.is_dir() else None
@@ -453,7 +453,7 @@ def _os_state(app: Path) -> dict[str, bool | None]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Clash Verge Rev 配置检查与修改（claude-antiban）")
+    parser = argparse.ArgumentParser(description="Clash Verge 配置检查与修改（claude-antiban）")
     parser.add_argument("command", choices=["status", "apply", "verify", "restore"])
     parser.add_argument("--dir", help="Clash Verge 配置目录，默认按系统自动找")
     parser.add_argument("--browser", choices=sorted(BROWSERS), help="apply 用：用户专门登录 Claude 的浏览器")
@@ -464,7 +464,7 @@ def main(argv: list[str] | None = None) -> int:
 
     app = find_app_dir(args.dir)
     if app is None:
-        print("没找到 Clash Verge Rev 的配置目录：用户还没装 Clash Verge Rev，或者用的是 v2rayN 等别的软件。")
+        print("没找到 Clash Verge 的配置目录：用户还没装 Clash Verge，或者用的是 v2rayN 等别的软件。")
         return 2
     if args.command in ("status", "verify"):
         result = status(app, _os_state(app)) if args.command == "status" else verify(app)
