@@ -93,4 +93,4 @@ prepend:
 
 ## 验收
 
-运行 `python scripts/selfcheck.py`，要求：浏览器、系统代理、Claude Code 三行都是 [OK]，出口相同，且出口国家不是 CN/HK/MO。
+运行 `python scripts/selfcheck.py --browser <登录 Claude 的浏览器>`，要求：浏览器、系统代理、Claude Code 三行都是 [OK]，出口相同，且出口国家不是 CN/HK/MO。
