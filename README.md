@@ -23,9 +23,12 @@ Claude 账号和订阅之后再买，第 10 步登录前准备好就行。
 > [!IMPORTANT]
 > **好物推荐：[PriceAI](https://priceai.cc/channels?platform=Claude)**。这里可以买到各类账号、订阅，还有接码等衍生服务产品。
 
-你能正常打开 GitHub 看到这一页，就不用下载什么，直接把这个仓库的链接发给 AI，顺便告诉它两件事：静态 IP 有没有在用，登录 Claude 用的是哪个浏览器。比如：
+你能正常打开 GitHub 看到这一页，就不用下载什么，直接把这个仓库的链接发给 AI，再补充两点。照着下面发，括号里换成你自己的情况：
 
-> 按 https://github.com/skepty2333/claude-antiban 这个 skill 帮我配置。我已经买好静态 IP，现在就在用；我登录 Claude 用的是 Chrome 浏览器。
+> 按 https://github.com/skepty2333/claude-antiban 这个 skill 帮我配置。补充两点：
+>
+> 1. 是否有静态 IP：（有，正在用 / 买了还没到 / 还没买）
+> 2. 我登录 Claude 用的浏览器：（比如 Chrome）
 
 没说的，AI 会先问你。然后它会自己把 skill 拉到电脑上，先测一遍你电脑现在的样子，再一步步配。IP 还没到手的，它做到第 7 步要换 IP 时会停下来等你。
 
