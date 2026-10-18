@@ -11,10 +11,9 @@ import json
 import secrets
 import socket
 import threading
-import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 from urllib.parse import parse_qs, urlparse
 
 HERE = Path(__file__).resolve().parent
@@ -127,20 +126,25 @@ def _handler(session: _Session) -> type:
     return Handler
 
 
-def run_in_browser(config: dict[str, Any], open_browser: bool = True,
+def run_in_browser(config: dict[str, Any], opener: Optional[Callable[[str], bool]] = None,
+                   label: str = "你登录 Claude 的那个浏览器",
                    timeout: float = 180) -> Optional[dict[str, Any]]:
-    """Serve check.html, open it, wait for the posted result (None on timeout)."""
+    """Serve check.html, open it with `opener` (None: only print the URL), wait for the posted result.
+
+    Returns None on timeout. Never falls back to the default browser: the page has to run in the
+    browser the user logs in to Claude with, which is often not the default one.
+    """
     session = _Session(config)
     server = _ExclusiveServer(("127.0.0.1", 0), _handler(session))
     threading.Thread(target=server.serve_forever, daemon=True).start()
     url = f"http://127.0.0.1:{server.server_port}/check.html?t={session.token}"
     print(f"\n浏览器检测页：{url}")
-    if open_browser and webbrowser.open(url):
-        print("已在默认浏览器打开。平时不用默认浏览器登 Claude 的话，把上面的地址复制到那个浏览器里。")
-    else:
-        print("请把上面的地址复制到你平时登 Claude 的浏览器里打开。")
-    print(f"等待浏览器回传结果（最多 {int(timeout)} 秒）…")
     try:
+        if opener is not None and opener(url):
+            print(f"已在 {label} 里打开检测页。用户有好几个浏览器用户（配置文件）的，确认开在登录 Claude 的那一个里。")
+        else:
+            print(f"请把上面的地址复制到 {label} 里打开。")
+        print(f"等待浏览器回传结果（最多 {int(timeout)} 秒）…")
         session.done.wait(timeout)
     finally:
         server.shutdown()

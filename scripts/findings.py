@@ -34,6 +34,10 @@ WINDOWS_TZ = {
 }
 ORDER = {"bad": 0, "warn": 1, "info": 2, "ok": 3}
 NO_BROWSER = "浏览器检测没有结果（已跳过、超时或出错）"
+# 真实 IP 或真实的网络环境漏给 Claude 的那几项，每一项单独出现都够严重，结论里直接这么说
+ALONE = "单独这一项就可能导致封号"
+BROWSER_NAMES = {"chrome": "Chrome", "edge": "Edge", "firefox": "Firefox", "brave": "Brave"}
+DEFAULT_OPENS = "Claude 桌面端、Claude Code 登录时，还有邮件里的登录链接，都会自动用默认浏览器打开"
 
 
 def finding(key: str, title: str, level: str, summary: str, fix: str = "") -> Json:
@@ -115,11 +119,12 @@ def eval_browser_exit(report: Json) -> Json:
     neutral, claude = b.get("neutralTrace"), b.get("claudeTrace")
     if not neutral:
         return finding("browser_exit", title, "bad",
-                       "浏览器连不上 1.1.1.1（直连时会被墙），多半没走代理；为保护真实 IP，没有去访问 claude.ai",
-                       "routing")
+                       "这个浏览器连不上 1.1.1.1（直连时会被墙），多半没走代理：用它打开 Claude，Claude 看到的就是"
+                       "你的真实 IP。为保护真实 IP，这次没有去访问 claude.ai", "routing")
     if neutral.get("loc") in RESTRICTED:
         return finding("browser_exit", title, "bad",
-                       f"浏览器出口在 {neutral.get('loc')}：没走代理。为保护真实 IP，没有去访问 claude.ai", "routing")
+                       f"这个浏览器的出口在 {neutral.get('loc')}，没走代理：用它打开 Claude，Claude 看到的就是你的真实 IP。"
+                       "为保护真实 IP，这次没有去访问 claude.ai", "routing")
     if not claude and b.get("claudeSkipped"):
         return finding("browser_exit", title, "info",
                        f"浏览器出口 {neutral.get('ip')}（{neutral.get('loc')}）；这次按 --no-claude 没有访问 claude.ai")
@@ -128,7 +133,8 @@ def eval_browser_exit(report: Json) -> Json:
                        f"浏览器出口 {neutral.get('ip')}（{neutral.get('loc')}），但取不到 claude.ai 的出口信息", "routing")
     if claude.get("loc") in RESTRICTED:
         return finding("browser_exit", title, "bad",
-                       f"Claude 看到的出口在 {claude.get('loc')}：claude.ai 被分流到了不支持的地区", "routing")
+                       f"Claude 看到的出口在 {claude.get('loc')}：claude.ai 被分流到了 Claude 不支持的地区，{ALONE}",
+                       "routing")
     return finding("browser_exit", title, "ok", f"Claude 看到 {claude.get('ip')}（{claude.get('loc')}）")
 
 
@@ -143,7 +149,8 @@ def _path_vs_exit(echo: Json, exit_addr: Optional[str], ref: str) -> tuple[str, 
     if exit_addr and _family(ip) != _family(exit_addr):
         return "info", f"出口 {ip}；{ref}是另一种 IP 版本（{exit_addr}），无法直接比较"
     if exit_addr and ip != exit_addr:
-        return "warn", f"出口 {ip} 与{ref} {exit_addr} 不同（可能是分流规则或自动切换节点）"
+        return "bad", (f"出口 {ip} 与{ref} {exit_addr} 不同：Claude 会看到同一个账号从两个 IP 上来，{ALONE}"
+                       "（多半是分流规则或自动选择节点造成的）")
     return "ok", f"出口 {ip}，与{ref}一致"
 
 
@@ -159,7 +166,7 @@ def eval_system_proxy(report: Json, exit_addr: Optional[str], tun: bool) -> Json
         if report.get("platform", "win32") not in ("win32", "darwin"):
             return finding("system_proxy", title, "info", "这个系统不检测系统代理；以浏览器那一项为准")
         return finding("system_proxy", title, "bad",
-                       "没设系统代理，也没开 TUN：Claude 桌面端会用真实 IP 直连", "routing")
+                       f"没设系统代理，也没开 TUN：Claude 桌面端会用真实 IP 直连，{ALONE}", "routing")
     level, text = _path_vs_exit(path["echo"], exit_addr, _reference_label(report))
     return finding("system_proxy", title, level, f"系统代理 {path['proxy']}；{text}",
                    "routing" if level in ("bad", "warn") else "")
@@ -182,7 +189,7 @@ def eval_env_proxy(report: Json, exit_addr: Optional[str], tun: bool) -> Json:
         return finding("env_proxy", title, "warn",
                        "没设 HTTPS_PROXY，目前靠 TUN 接管；Clash 一退出 Claude Code 就会直连", "routing")
     return finding("env_proxy", title, "bad",
-                   "没设 HTTPS_PROXY 也没开 TUN：Claude Code 会用真实 IP 直连", "routing")
+                   f"没设 HTTPS_PROXY 也没开 TUN：Claude Code 会用真实 IP 直连，{ALONE}", "routing")
 
 
 def eval_direct(report: Json, tun: bool) -> Json:
@@ -209,9 +216,9 @@ def eval_exit_stability(report: Json, exit_addr: Optional[str]) -> Json:
     if len(seen) <= 1:
         return finding("exit_stability", title, "ok" if seen else "info",
                        "所有走代理的请求都是同一个出口" if seen else "没有可比较的代理出口")
-    return finding("exit_stability", title, "warn",
-                   f"走代理的请求出现了多个出口 {sorted(seen)}：检查是否用了自动选择/负载均衡组或分流规则",
-                   "routing")
+    return finding("exit_stability", title, "bad",
+                   f"走代理的请求出现了多个出口 {sorted(seen)}：Claude 看到的 IP 会变来变去，{ALONE}。"
+                   "检查是不是用了自动选择、负载均衡组或分流规则", "routing")
 
 
 # ---------------------------------------------------------------- DNS
@@ -237,6 +244,10 @@ def eval_dns_browser(report: Json, country: Optional[str]) -> Json:
     if not data["servers"]:
         return finding("dns_browser", title, "info", "没观察到解析服务器（远端解析或测试失败）")
     level, desc = _dns_level(data["servers"], country)
+    if level == "bad":
+        desc += f"：浏览器查域名用到了国内的 DNS 服务器，国内那边能看到你在访问 Claude，{ALONE}"
+    elif level == "warn":
+        desc += "：解析服务器和出口不在同一个国家"
     return finding("dns_browser", title, level, desc, "dns" if level != "ok" else "")
 
 
@@ -251,9 +262,10 @@ def eval_dns_os(report: Json, country: Optional[str]) -> Json:
         return finding("dns_os", title, "ok", "系统解析没有到达外部解析服务器：已被代理软件接管")
     _, desc = _dns_level(data["servers"], country)
     if any(srv.get("country_code") == "CN" for srv in data["servers"]):  # mainland ISP resolver
-        return finding("dns_os", title, "warn",
-                       desc + "。不走代理的软件在用国内的 DNS；用 windows-setup.ps1 -NetworkTask 把网卡 DNS 固定为 1.1.1.1/8.8.8.8（SKILL 配置流程第 6 步）",
-                       "dns")
+        return finding("dns_os", title, "bad",
+                       desc + "。电脑在用国内运营商的 DNS：不走代理的程序一查域名，运营商就能看到这台电脑访问过哪些网站，"
+                       f"可能包括 Claude 的，{ALONE}。用 windows-setup.ps1 -NetworkTask 把网卡 DNS 固定为 "
+                       "1.1.1.1/8.8.8.8（SKILL 配置流程第 6 步）", "dns")
     return finding("dns_os", title, "ok", desc + "（只影响不走代理的软件）")
 
 
@@ -284,12 +296,17 @@ def eval_webrtc(report: Json, exit_addr: Optional[str]) -> Json:
     kinds = {c.get("address"): _classify_candidate(c.get("address") or "", exit_addr, mine) for c in cands}
     by_kind = {k: [a for a, kind in kinds.items() if kind == k] for k in ("real", "other", "private", "exit")}
     if by_kind["real"]:
-        return finding("webrtc", title, "bad", f"WebRTC 暴露了真实 IP {mask_ip(by_kind['real'][0])}", "browser")
+        return finding("webrtc", title, "bad",
+                       f"WebRTC 漏出了你的真实 IP {mask_ip(by_kind['real'][0])}：网页不经过代理就能拿到它，{ALONE}",
+                       "browser")
     if by_kind["other"]:
-        return finding("webrtc", title, "warn",
-                       f"WebRTC 出现了代理出口以外的公网 IP {[mask_ip(a) for a in by_kind['other']]}", "browser")
+        return finding("webrtc", title, "bad",
+                       f"WebRTC 漏出了代理出口以外的公网 IP {[mask_ip(a) for a in by_kind['other']]}："
+                       f"网页能绕过代理看到它，{ALONE}", "browser")
     if by_kind["private"]:
-        return finding("webrtc", title, "warn", f"WebRTC 暴露了内网 IP {by_kind['private']}", "browser")
+        return finding("webrtc", title, "warn",
+                       f"WebRTC 漏出了内网 IP {by_kind['private']}：WebRTC 没限制住，扩展没装好或者没选对选项",
+                       "browser")
     if not cands:
         return finding("webrtc", title, "ok", "没有任何候选地址：WebRTC 已被扩展或设置限制")
     if not by_kind["exit"]:
@@ -308,13 +325,14 @@ def eval_ipv6(report: Json, country: Optional[str]) -> Json:
             return finding("ipv6", title, "warn", f"浏览器拿到了 IPv6 {mask_ip(browser_ip)}，但查不到归属地", "routing")
         if found in RESTRICTED or (country and found != country):
             return finding("ipv6", title, "bad",
-                           f"浏览器拿到了 IPv6 {mask_ip(browser_ip)}（{found}），绕过了代理出口", "routing")
+                           f"浏览器拿到了 IPv6 {mask_ip(browser_ip)}（{found}），这条连接绕过了代理，{ALONE}", "routing")
         return finding("ipv6", title, "ok", f"浏览器 IPv6 {browser_ip} 也从代理出口所在国出去")
     direct = v6.get("direct") or {}
     if direct.get("reachable"):
-        return finding("ipv6", title, "warn",
-                       f"本机有原生 IPv6（{mask_ip(direct.get('ip'))}），浏览器暂未用上；"
-                       "不认代理的程序和 TUN 可能漏掉它", "routing")
+        return finding("ipv6", title, "bad",
+                       f"电脑的 IPv6 开着（{mask_ip(direct.get('ip'))}）：代理只管 IPv4，走 IPv6 的连接会绕过代理，"
+                       f"直接用你的真实地址出去。这次浏览器碰巧没用上，不代表下次不会，{ALONE}。"
+                       "必须关掉（SKILL 配置流程第 6 步）", "routing")
     return finding("ipv6", title, "ok", "本机没有可用的 IPv6 出口")
 
 
@@ -384,18 +402,90 @@ def eval_ip_quality(report: Json) -> Json:
     return finding("ip_quality", title, level, "；".join(notes) or "没有负面标记", "ip" if level != "ok" else "")
 
 
+def _doh_desc(items: dict[str, Json]) -> str:
+    return "，".join(f"{b} 为 {d.get('mode')}（{d.get('detail')}）" for b, d in items.items())
+
+
 def eval_secure_dns(report: Json) -> Json:
     title = "浏览器安全 DNS（DoH）"
     data = report.get("secure_dns") or {}
     if not data:
-        return finding("secure_dns", title, "info", "没找到 Chrome、Edge 或 Firefox 的设置")
+        return finding("secure_dns", title, "info", "没找到 Chrome、Edge、Firefox 或 Brave 的设置")
     on = {b: d for b, d in data.items() if d.get("mode") not in ("off", "unknown")}
-    if not on:
-        return finding("secure_dns", title, "ok", f"{'、'.join(data)} 的安全 DNS 都已关闭")
-    which = "，".join(f"{b} 为 {d.get('mode')}（{d.get('detail')}）" for b, d in on.items())
-    return finding("secure_dns", title, "warn",
-                   f"{which}：浏览器会绕过系统和 Clash 自己做 DNS 查询。开 TUN 时会让 Clash 的 fake-ip 和分流规则失效，"
-                   "统一关掉更稳", "browser")
+    why = ("浏览器会绕开 Clash 自己去查域名，查询走哪条路不受控制，可能把你访问 Claude 的记录交给国内的 DNS，"
+           f"{ALONE}，必须关掉")
+    claude = [BROWSER_NAMES[b] for b in report.get("claude_browsers") or [] if b in BROWSER_NAMES]
+    if not claude:
+        if not on:
+            return finding("secure_dns", title, "ok", f"{'、'.join(data)} 的安全 DNS 都已关闭")
+        return finding("secure_dns", title, "warn",
+                       f"{_doh_desc(on)}。没指定登录 Claude 的浏览器：如果是它，{why}", "browser")
+    risky = {b: d for b, d in on.items() if b in claude}
+    if risky:
+        return finding("secure_dns", title, "bad", f"{_doh_desc(risky)}：{why}", "browser")
+    unread = [b for b in claude if data.get(b, {}).get("mode") in (None, "unknown")]
+    if unread:
+        detail = "；".join(f"{b}：{data[b].get('detail')}" for b in unread if data.get(b, {}).get("detail"))
+        return finding("secure_dns", title, "warn",
+                       f"没能确认 {'、'.join(unread)} 的安全 DNS 已关闭" + (f"（{detail}）" if detail else "")
+                       + "：请用户照 SETUP 2.2 在设置里明确关掉", "browser")
+    others = {b: d for b, d in on.items() if b not in claude}
+    if others:
+        return finding("secure_dns", title, "info",
+                       f"{'、'.join(claude)} 已关闭；{_doh_desc(others)}：只要不用它登录 Claude、它也不是默认浏览器，就没关系")
+    return finding("secure_dns", title, "ok", f"{'、'.join(claude)} 的安全 DNS 已关闭")
+
+
+def eval_tested_browser(report: Json) -> Optional[Json]:
+    """检测页实际跑在哪个浏览器里：浏览器那几项只代表它。"""
+    b = report.get("browser")
+    if not b or "seen" not in b:
+        return None
+    title = "这次测的是哪个浏览器"
+    seen, wanted = b.get("seen"), (report.get("claude_browsers") or [None])[0]
+    if seen not in BROWSER_NAMES:
+        ua = str((b.get("env") or {}).get("userAgent") or "")[:100]
+        return finding("tested_browser", title, "warn",
+                       f"检测页跑在一个认不出的浏览器里（{ua}）：360、QQ 这类国产浏览器不能用来登录 Claude", "browser")
+    shown = BROWSER_NAMES[seen]
+    if wanted and seen != wanted:
+        return finding("tested_browser", title, "warn",
+                       f"检测页是在 {shown} 里跑的，不是 {BROWSER_NAMES[wanted]}：WebRTC、浏览器 DNS、指纹这几项测的是 "
+                       f"{shown}，要在 {BROWSER_NAMES[wanted]} 里重测", "browser")
+    others = [b for b in report.get("claude_browsers") or [] if b in BROWSER_NAMES and b != seen]
+    tail = "".join(f"；{BROWSER_NAMES[b]} 这次没测，要用 --browser {b} --also {seen} 再测一次" for b in others)
+    return finding("tested_browser", title, "info",
+                   f"检测页在 {shown} 里跑的：WebRTC、浏览器 DNS、指纹这几项只代表 {shown}{tail}")
+
+
+def eval_default_browser(report: Json) -> Optional[Json]:
+    """默认浏览器也会碰到 Claude：要么就是登录 Claude 的那个，要么也照样设好。"""
+    d = report.get("default_browser")
+    if not d:
+        return None
+    title, name, key = "默认浏览器", d.get("name") or "?", d.get("key")
+    claude = [b for b in report.get("claude_browsers") or [] if b in BROWSER_NAMES]
+    if d.get("domestic"):
+        return finding("default_browser", title, "bad",
+                       f"默认浏览器是 {name}，是国产浏览器：{DEFAULT_OPENS}，{ALONE}。要把默认浏览器改成登录 Claude 的那个",
+                       "browser")
+    readable = any(d.get(k) for k in ("progid", "exe", "bundle"))
+    if not claude or (key is None and not readable):
+        return finding("default_browser", title, "info", f"默认浏览器是 {name}")
+    seen = (report.get("browser") or {}).get("seen")
+    if key in claude and report.get("browser") and seen != key:
+        return finding("default_browser", title, "warn",
+                       f"默认浏览器是 {name}，按 --also 算作也设好了，但这次检测页没在 {name} 里跑："
+                       f"再用 --browser {key} --also {seen or claude[0]} 测一次", "browser")
+    if key in claude:
+        return finding("default_browser", title, "ok",
+                       f"默认浏览器就是 {name}：Claude 桌面端、Claude Code 登录和邮件里的登录链接，打开的都是它")
+    main = BROWSER_NAMES[claude[0]]
+    way_out = (f"要么 {name} 也照 SETUP 第二节设好，再用 --browser {key} --also {claude[0]} 测一遍" if key
+               else "要么换成本 skill 支持的浏览器（Chrome、Edge、Firefox、Brave）当默认浏览器，也照样设好")
+    return finding("default_browser", title, "bad",
+                   f"默认浏览器是 {name}，不是登录 Claude 的 {main}：{DEFAULT_OPENS}，没设好的 {name} 会把你的真实环境"
+                   f"带给 Claude。要么把默认浏览器改成 {main}（推荐），{way_out}", "browser")
 
 
 def eval_domestic_apps(report: Json, tun: bool) -> Json:
@@ -441,6 +531,8 @@ def evaluate(report: Json) -> list[Json]:
         eval_fingerprint(report),
         eval_ip_quality(report),
         eval_secure_dns(report),
+        eval_tested_browser(report),
+        eval_default_browser(report),
         eval_domestic_apps(report, tun),
     ]
-    return sorted(items, key=lambda f: ORDER.get(f["level"], 9))
+    return sorted((f for f in items if f), key=lambda f: ORDER.get(f["level"], 9))

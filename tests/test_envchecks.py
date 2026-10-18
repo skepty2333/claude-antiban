@@ -57,7 +57,8 @@ def test_unreadable_local_state_is_unknown(monkeypatch, tmp_path):
 
 @pytest.mark.parametrize("prefs,mode", [('user_pref("network.trr.mode", 2);', "on"),
                                         ('user_pref("network.trr.mode", 5);', "off"),
-                                        ("// no trr pref", "off")])
+                                        ('user_pref("doh-rollout.mode", 2);', "on"),
+                                        ("// no trr pref", "unknown")])  # Firefox may turn it on by region
 def test_firefox_trr_modes(monkeypatch, tmp_path, prefs, mode):
     monkeypatch.setattr(ec.sys, "platform", "win32")
     monkeypatch.setenv("APPDATA", str(tmp_path))
@@ -130,6 +131,19 @@ def test_domestic_probe_partial_silence_is_failure(monkeypatch):
 ])
 def test_secure_dns_verdict(data, level):
     assert by_key(make_report(secure_dns=data))["secure_dns"]["level"] == level
+
+
+@pytest.mark.parametrize("data,claude,level", [
+    ({"Chrome": {"mode": "automatic", "detail": "默认值"}}, ["chrome"], "bad"),
+    ({"Chrome": {"mode": "off"}, "Edge": {"mode": "automatic", "detail": "默认值"}}, ["chrome"], "info"),
+    ({"Chrome": {"mode": "off"}, "Edge": {"mode": "automatic", "detail": "默认值"}}, ["chrome", "edge"], "bad"),
+    ({"Chrome": {"mode": "off"}}, ["chrome"], "ok"),
+    ({"Edge": {"mode": "off"}}, ["brave"], "warn"),          # the Claude browser's setting was not found
+    ({"Firefox": {"mode": "unknown", "detail": "没设置过"}}, ["firefox"], "warn"),
+])
+def test_secure_dns_only_the_claude_browsers_must_be_off(data, claude, level):
+    report = make_report(secure_dns=data, claude_browsers=claude)
+    assert by_key(report)["secure_dns"]["level"] == level
 
 
 @pytest.mark.parametrize("os_states,clash_states,direct,level", [

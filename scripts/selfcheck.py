@@ -1,8 +1,13 @@
 """Claude anti-ban environment self-check (Python 3.9+, standard library only).
 
-    python selfcheck.py                 # full check, opens check.html in the default browser
-    python selfcheck.py --no-open       # print the URL; open it in the browser you use for Claude
-    python selfcheck.py --skip-browser  # script-side checks only
+    python selfcheck.py --browser chrome                 # full check, opens check.html in Chrome
+    python selfcheck.py --browser chrome --also edge     # the default browser (Edge) is set up for Claude too
+    python selfcheck.py --browser chrome --no-open       # print the URL; the user opens it in Chrome
+    python selfcheck.py --browser chrome --skip-browser  # script-side checks only
+
+--browser is always required: ask the user which browser they log in to Claude with. The page
+never opens in "whatever the default browser is", and the secure-DNS and default-browser verdicts
+are judged against --browser / --also.
 
 Python never contacts Claude/Anthropic (netchecks refuses those hosts). Only the
 browser page loads claude.ai/cdn-cgi/trace, and only after a neutral pre-flight
@@ -24,6 +29,7 @@ from typing import Any, Optional
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
+import browsers as br  # noqa: E402
 import envchecks as ec  # noqa: E402
 import findings as fd  # noqa: E402
 import netchecks as nc  # noqa: E402
@@ -44,8 +50,12 @@ WINDOWS_TO_IANA = {win: iana for iana, win in reversed(list(fd.WINDOWS_TZ.items(
 WINDOWS_TO_IANA.update({"China Standard Time": "Asia/Shanghai", "Taipei Standard Time": "Asia/Taipei"})
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Claude 防封环境自检")
+    p.add_argument("--browser", choices=sorted(br.KNOWN),
+                   help="必填。用户登录 Claude 的浏览器，检测页在它里面打开（先问用户，不要猜）")
+    p.add_argument("--also", choices=sorted(br.KNOWN),
+                   help="另一个也会碰到 Claude 的浏览器：默认浏览器和 --browser 不是同一个、两个都设好了时填默认浏览器")
     p.add_argument("--no-open", action="store_true", help="不自动打开浏览器，只打印检测页地址")
     p.add_argument("--skip-browser", action="store_true", help="跳过浏览器部分（指纹、WebRTC、浏览器 DNS）")
     p.add_argument("--no-claude", action="store_true",
@@ -54,7 +64,13 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--full", action="store_true", help="JSON 里保留真实 IP（默认打码，便于交给 AI 解读）")
     p.add_argument("--json", type=Path, default=Path(tempfile.gettempdir()) / "claude-antiban-report.json",
                    help="完整结果 JSON 的保存路径")
-    return p.parse_args()
+    args = p.parse_args(argv)
+    if not args.browser:
+        p.error(f"先问用户登录 Claude 用的是哪个浏览器，再加 --browser <浏览器>（这台电脑的默认浏览器是 "
+                f"{default_browser()['name']}）。检测页不会自动在默认浏览器里打开：要测的是登录 Claude 的那个浏览器")
+    if args.also == args.browser:
+        p.error("--also 是另一个也会碰到 Claude 的浏览器，不能和 --browser 相同")
+    return args
 
 
 def out(text: str = "") -> None:
@@ -147,14 +163,19 @@ def run_browser(px: Json, args: argparse.Namespace) -> tuple[Optional[Json], lis
     except Exception as exc:  # noqa: BLE001 - DNS part is optional
         out(f"（dnsleaktest 注册失败，浏览器 DNS 检测跳过：{exc}）")
         ids = []
+    target = getattr(args, "browser", None)
+    opener = None if args.no_open or not target else (lambda url: br.open_url(target, url))
+    label = br.display(target) if target else "你登录 Claude 的那个浏览器"
     raw = run_in_browser({"dnsIds": ids, "skipClaude": args.no_claude},
-                         open_browser=not args.no_open, timeout=args.timeout)
+                         opener=opener, label=label, timeout=args.timeout)
     if isinstance(raw, dict) and raw.get("error"):
         out(f"浏览器检测页出错：{str(raw['error'])[:200]}")
         return None, ids, "error"
     result = sanitize_browser(raw)
     if result is not None:
         result["claudeSkipped"] = bool(args.no_claude)  # 以脚本自己的参数为准，不信页面传回的
+        env = result.get("env")
+        result["seen"] = br.identify(env if isinstance(env, dict) else {})  # 检测页实际跑在哪个浏览器里
     return result, ids, "ok" if result else "timeout"
 
 
@@ -165,8 +186,16 @@ def browser_clock(browser: Json) -> Json:
             "offset_min": offset if isinstance(offset, int) else None}
 
 
+def default_browser() -> Json:
+    try:
+        return br.default_browser()
+    except Exception as exc:  # noqa: BLE001 - registry layouts vary; this item is optional
+        return {"key": None, "name": f"没查到（{type(exc).__name__}）", "domestic": False}
+
+
 def build_report(px: Json, futures: dict[str, Any], browser: Optional[Json],
-                 dns_ids: list[str], browser_status: str) -> Json:
+                 dns_ids: list[str], browser_status: str,
+                 claude_browsers: Optional[list[str]] = None) -> Json:
     def value(name: str) -> Json:
         fut = futures.get(name)
         if not fut:
@@ -182,6 +211,9 @@ def build_report(px: Json, futures: dict[str, Any], browser: Optional[Json],
         "platform": sys.platform,
         "browser_status": browser_status,
         "browser": browser,
+        # 用户登录 Claude 的浏览器（--browser，加上 --also）；默认浏览器也要算在里面才安全
+        "claude_browsers": claude_browsers or [],
+        "default_browser": default_browser(),
         "system_proxy_pac": px["pac"],
         "paths": {
             "system_proxy": {"proxy": redact_proxy(px["system"]), "echo": value("echo_system")},
@@ -264,7 +296,8 @@ def main() -> int:
     try:
         futures = start_script_probes(pool, px)
         browser, dns_ids, status = run_browser(px, args)
-        report = build_report(px, futures, browser, dns_ids, status)
+        claude_browsers = [b for b in (args.browser, args.also) if b]
+        report = build_report(px, futures, browser, dns_ids, status, claude_browsers)
     finally:
         pool.shutdown(wait=False, cancel_futures=True)  # never block on a stuck probe
     items = fd.evaluate(report)

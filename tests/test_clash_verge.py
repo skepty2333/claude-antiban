@@ -131,6 +131,12 @@ def make_app(tmp_path: Path, *, verge: str = VERGE_GOOD, config: str = CONFIG_GO
     return app
 
 
+@pytest.fixture(autouse=True)
+def no_real_windows_state(monkeypatch: pytest.MonkeyPatch) -> None:
+    """main(["status"]) would otherwise read this machine's registry, scheduled tasks and ports."""
+    monkeypatch.setattr(cv, "_os_state", lambda app: {})
+
+
 def checks_by_key(report: dict) -> dict:
     return {c["key"]: c for c in report["checks"]}
 
@@ -435,7 +441,7 @@ def test_restore_puts_switch_files_back_and_restarts(tmp_path: Path) -> None:
 
 def test_apply_with_browser_routes_it_and_claude_through_the_match_group(tmp_path: Path) -> None:
     app = make_app(tmp_path, rules="prepend:\n- GEOSITE,cn,DIRECT\n- GEOIP,CN,DIRECT,no-resolve\nappend: []\n")
-    cv.apply(app, dry_run=False, stamp="s", browser="chrome", platform="win32")
+    cv.apply(app, dry_run=False, stamp="s", browsers=["chrome"], platform="win32")
     entries = cv.prepend_entries((app / "profiles" / "rRules01.yaml").read_text(encoding="utf-8"))
     assert entries == ["PROCESS-NAME,chrome.exe,PROXY", "PROCESS-NAME,claude.exe,PROXY", *cv.PREPEND_RULES]
     assert cv.status(app)["process_rules"] == entries[:2]
@@ -443,7 +449,7 @@ def test_apply_with_browser_routes_it_and_claude_through_the_match_group(tmp_pat
 
 def test_apply_without_match_group_only_writes_china_rules(tmp_path: Path) -> None:
     app = make_app(tmp_path, sub=THREE_PROXIES)  # 这个订阅没有 MATCH 规则
-    messages = cv.apply(app, dry_run=False, stamp="s", browser="chrome", platform="win32")
+    messages = cv.apply(app, dry_run=False, stamp="s", browsers=["chrome"], platform="win32")
     entries = cv.prepend_entries((app / "profiles" / "rRules01.yaml").read_text(encoding="utf-8"))
     assert entries == list(cv.PREPEND_RULES)
     assert any("MATCH" in m for m in messages)

@@ -15,6 +15,12 @@ from pathlib import Path
 from typing import Callable, Mapping, Protocol
 
 PROCESS = "clash-verge"
+# 代理端口上只该有 Clash Verge 自己的程序。按完整进程名比：别的 Clash 系客户端（Clash for Windows、
+# Mihomo Party 的 mihomo 等）也会占同一个端口，正是这项检查要抓的
+CLASH_LISTENERS = ("verge-mihomo", "verge-mihomo-alpha", "clash-verge", "clash-verge-service",
+                   "clash-meta", "clash-meta-alpha")
+POWERSHELL = str(Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "WindowsPowerShell" / "v1.0"
+                 / "powershell.exe")
 TASK_NAME = "Clash Verge"  # Clash Verge 在 Windows 上用这个计划任务做开机自启
 RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
 INTERNET_KEY = r"Software\Microsoft\Windows\CurrentVersion\Internet Settings"
@@ -65,7 +71,7 @@ def wait_ready(port: int, runtime: Path, since: float, timeout: float = 30,
 class WindowsApp:
     def running_exe(self) -> str | None:
         command = f"(Get-Process -Name '{PROCESS}' -ErrorAction SilentlyContinue | Select-Object -First 1).Path"
-        result = subprocess.run(["powershell", "-NoProfile", "-Command", command],
+        result = subprocess.run([POWERSHELL, "-NoProfile", "-Command", command],
                                 capture_output=True, text=True, timeout=20)
         path = result.stdout.strip()
         return path or None
@@ -129,6 +135,34 @@ def system_proxy_ok(port: int) -> bool | None:
     return proxy_points_to(enabled if isinstance(enabled, int) else None, server if isinstance(server, str) else None, port)
 
 
+def _is_clash_path(text: str) -> bool:
+    lowered = text.lower()
+    return "clash" in lowered and "verge" in lowered
+
+
+def foreign_listeners(names: list[str]) -> list[str]:
+    """监听代理端口的程序里，不是 Clash Verge 的那些。"""
+    return [name for name in names if name.lower().removesuffix(".exe") not in CLASH_LISTENERS]
+
+
+def port_listeners(port: int) -> list[str] | None:
+    """Windows 上哪些程序在监听这个端口（进程名，去重）；非 Windows 或查不了返回 None。"""
+    if sys.platform != "win32":
+        return None
+    command = ("[Console]::OutputEncoding = [Text.Encoding]::UTF8; "
+               f"Get-NetTCPConnection -State Listen -LocalPort {int(port)} -ErrorAction SilentlyContinue | "
+               "ForEach-Object { (Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue).ProcessName } | "
+               "Sort-Object -Unique")
+    try:
+        result = subprocess.run([POWERSHELL, "-NoProfile", "-Command", command], capture_output=True,
+                                encoding="utf-8", errors="replace", timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if result.returncode != 0:  # 查不了（被策略拦了、没有这个命令），不能当成"没有程序在听"
+        return None
+    return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+
+
 def autostart_registered() -> bool | None:
     """Windows 上 Clash Verge 有没有真的登记开机自启：计划任务、Run 键或启动文件夹，任一即可。"""
     if sys.platform != "win32":
@@ -141,9 +175,9 @@ def autostart_registered() -> bool | None:
         try:
             with winreg.OpenKey(root, RUN_KEY) as handle:
                 count = winreg.QueryInfoKey(handle)[1]
-                if any(PROCESS in str(winreg.EnumValue(handle, i)[1]).lower() for i in range(count)):
+                if any(_is_clash_path(str(winreg.EnumValue(handle, i)[1])) for i in range(count)):
                     return True
         except OSError:
             continue
     startup = Path(os.environ.get("APPDATA", "")) / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup"
-    return any("clash" in p.name.lower() for p in startup.glob("*")) if startup.is_dir() else False
+    return any(_is_clash_path(p.name) for p in startup.glob("*")) if startup.is_dir() else False

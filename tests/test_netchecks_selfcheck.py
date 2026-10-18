@@ -261,13 +261,56 @@ def test_main_end_to_end_with_fake_network(monkeypatch, tmp_path, capsys):
                "webrtc": {"candidates": []}, "fuckClaude": {"score": 0, "band": "low", "signals": []},
                "env": {"timeZone": "America/Los_Angeles", "utcOffsetMinutes": -420}}
     monkeypatch.setattr(sc, "run_in_browser", lambda *a, **k: browser)
+    monkeypatch.setattr(sc, "default_browser", lambda: {"key": "chrome", "name": "Chrome", "domestic": False})
     out_json = tmp_path / "r.json"
-    monkeypatch.setattr(sys, "argv", ["selfcheck.py", "--no-open", "--json", str(out_json)])
+    monkeypatch.setattr(sys, "argv", ["selfcheck.py", "--browser", "chrome", "--no-open", "--json", str(out_json)])
     assert sc.main() == 0
     printed = capsys.readouterr().out
     assert "严重 0" in printed and REAL not in printed
     saved = json.loads(out_json.read_text(encoding="utf-8"))
     assert REAL not in json.dumps(saved) and saved["findings"]
+
+
+def test_selfcheck_refuses_to_guess_the_browser(monkeypatch, capsys):
+    monkeypatch.setattr(sc, "default_browser", lambda: {"name": "Edge"})
+    for argv in ([], ["--no-open"], ["--skip-browser"]):  # the verdicts need --browser even without the page
+        with pytest.raises(SystemExit):
+            sc.parse_args(argv)
+    err = capsys.readouterr().err
+    assert "--browser" in err and "Edge" in err
+    assert sc.parse_args(["--browser", "chrome", "--also", "edge"]).also == "edge"
+    assert sc.parse_args(["--skip-browser", "--browser", "edge"]).browser == "edge"
+    with pytest.raises(SystemExit):
+        sc.parse_args(["--browser", "chrome", "--also", "chrome"])
+
+
+def test_run_browser_ignores_a_malformed_env(monkeypatch):
+    monkeypatch.setattr(nc, "dns_register", lambda proxy: [])
+    monkeypatch.setattr(sc, "run_in_browser", lambda *a, **k: {"neutralTrace": None, "env": "oops"})
+    args = SimpleNamespace(skip_browser=False, no_open=True, timeout=1, no_claude=True, browser="chrome")
+    assert sc.run_browser(proxies(), args)[0]["seen"] is None
+
+
+def test_run_browser_opens_the_named_browser_and_records_what_ran(monkeypatch):
+    monkeypatch.setattr(nc, "dns_register", lambda proxy: [])
+    opened = []
+    monkeypatch.setattr(sc.br, "open_url", lambda key, url: opened.append(key) or True)
+
+    def fake_run(config, opener=None, label="", timeout=0):
+        assert label == "Firefox" and opener("http://127.0.0.1:1/check.html")
+        return {"neutralTrace": None, "env": {"userAgent": "Mozilla/5.0 (Windows NT 10.0) Gecko/20100101 Firefox/131.0"}}
+
+    monkeypatch.setattr(sc, "run_in_browser", fake_run)
+    args = SimpleNamespace(skip_browser=False, no_open=False, timeout=1, no_claude=True, browser="firefox")
+    result = sc.run_browser(proxies(), args)[0]
+    assert opened == ["firefox"] and result["seen"] == "firefox"
+
+
+def test_build_report_records_the_claude_browsers(monkeypatch):
+    monkeypatch.setattr(sc, "default_browser", lambda: {"key": "edge", "name": "Edge", "domestic": False})
+    futures = {"echo_direct": done({"ip": REAL}), "geo": done({}), "colo": done({})}
+    report = sc.build_report(proxies(), futures, None, [], "skipped", ["chrome", "edge"])
+    assert report["claude_browsers"] == ["chrome", "edge"] and report["default_browser"]["key"] == "edge"
 
 
 # ---------------------------------------------------------------- update script

@@ -6,8 +6,9 @@
 订阅和节点不碰。不输出订阅链接和 secret。
 
     python clash_verge.py status [--json]                  # 开关、端口、节点数、DNS 和规则是否写入并生效
-    python clash_verge.py apply --browser chrome [--dry-run]
-        # 改开关、写 DNS 覆写和前置规则（专用浏览器和 Claude 程序全走节点、国内直连），重启 Clash
+    python clash_verge.py apply --browser chrome [edge] [--dry-run]
+        # 改开关、写 DNS 覆写和前置规则（登录 Claude 的浏览器和 Claude 程序全走节点、国内直连），重启 Clash
+        # 默认浏览器和登录 Claude 的浏览器不是同一个、两个都设好时，两个都写上
     python clash_verge.py verify [--json]                  # 确认 Clash 实际加载的配置已包含改动
     python clash_verge.py restore [--dry-run]              # 用最近一次备份还原，重启 Clash
     apply / restore 加 --no-restart：只改文件，不重启 Clash
@@ -27,6 +28,7 @@ from pathlib import Path
 from typing import Callable, Mapping
 
 import clash_app
+from clash_groups import Route, claude_route
 from clash_rules import (BROWSERS, PREPEND_RULES, PROCESS_PREFIX, TOP_LEVEL, add_prepend_rules,  # noqa: F401
                          has_prepend_rules, in_order, match_target, merge_prepend, prepend_entries,
                          process_rules, runtime_process_first, unquote)
@@ -77,6 +79,8 @@ SWITCHES = (
 FIX_APPLY = "运行 clash_verge.py apply"
 FIX_OS = "运行 clash_verge.py apply；还不行就请用户在 Clash「设置」页手动打开这个开关"
 SETUP_MODE = "SETUP.md「三、换上你买的静态 IP」第 2 条（选节点和模式）"
+FIX_PORT = ("请用户退出或卸载这个程序（多半是别的代理软件或加速器）；必须留着它的，在 Clash「设置」里换一个代理端口，"
+            "再运行 apply 和 windows-setup.ps1 -ProxyPort <新端口>")
 ReadyCheck = Callable[[int, Path, float], bool]
 
 
@@ -197,12 +201,41 @@ def switch_checks(files: Mapping[str, Mapping[str, str]]) -> list[Check]:
             for name, key, want, default, label in SWITCHES]
 
 
-def mode_check(clash: Mapping[str, str], proxies: int | None) -> Check | None:
+def mode_check(clash: Mapping[str, str], proxies: int | None, route: Route | None = None) -> Check | None:
+    """看 Claude 的流量最后落在哪：固定节点就行，自动切换的组或 DIRECT 不行；判断不了时按节点数给建议。"""
+    current = clash.get("mode") or "rule"
+    label = f"代理模式（订阅里有 {proxies} 个节点）" if proxies else "代理模式"
+    if current not in ("rule", "global"):
+        return Check("mode", label, current, "规则或全局", False, SETUP_MODE)
+    if route is not None and route.kind != "unknown":
+        shown = f"{current}，Claude 的流量走 {route.shown}"
+        if route.stale:
+            shown += f"（保存的选择 {'、'.join(route.stale)} 已经不在组里了，Clash 用的是组里第一项）"
+        if route.kind == "node":
+            return Check("mode", label, shown, "落在一个固定的节点上", True, SETUP_MODE)
+        picker = route.chain[-2] if len(route.chain) > 1 else None  # 用户能在里面手动选节点的那一级
+        where = f"请用户在 Clash「代理」页把「{picker}」选成静态 IP 节点" if picker else "请用户改用全局模式，选静态 IP 节点"
+        why = ("这样 Claude 用的是真实 IP" if route.kind == "direct"
+               else f"「{route.chain[-1]}」会自动换节点，Claude 看到的 IP 会跳")
+        return Check("mode", label, shown, "落在你买的静态 IP 节点上", False, f"{why}。{where}；{SETUP_MODE}")
     if not proxies:
         return None
     want = "rule" if proxies == 1 else "global"
-    current = clash.get("mode") or "rule"
-    return Check("mode", f"代理模式（订阅里有 {proxies} 个节点）", current, want, current == want, SETUP_MODE)
+    return Check("mode", label, current, want, current in (want, "global"), SETUP_MODE)
+
+
+def port_check(port: int, listeners: list[str] | None) -> Check | None:
+    """代理端口上只该有 Clash。别的程序也在听同一个端口，Clash 一停，流量就进了它那里，从哪出去不受控制。"""
+    if listeners is None:
+        return None
+    label = f"代理端口 {port} 上的程序"
+    if not listeners:
+        return Check("port_owner", label, "没有程序在监听", "Clash", False, "Clash 没在运行或者端口设置不对：打开 Clash 再查")
+    foreign = clash_app.foreign_listeners(listeners)
+    if foreign:
+        return Check("port_owner", label, f"除了 Clash，还有 {'、'.join(foreign)} 在用这个端口", "只有 Clash", False,
+                     FIX_PORT)
+    return Check("port_owner", label, f"只有 Clash（{'、'.join(listeners)}）", "只有 Clash", True, "")
 
 
 def os_checks(os_state: Mapping[str, bool | None]) -> list[Check]:
@@ -240,21 +273,32 @@ def _entries(text: str | None) -> list[str]:
         return []
 
 
-def status(app: Path, os_state: Mapping[str, bool | None] | None = None) -> dict:
-    files = _switch_files(app)
+def _route(app: Path, clash: Mapping[str, str], match_group: str | None) -> Route | None:
+    profiles = _read(app / "profiles.yaml") or ""
+    uid = read_top_level(profiles).get("current")
+    return claude_route(clash.get("mode") or "rule", match_group, _read(app / "clash-verge.yaml") or "", profiles, uid)
+
+
+def status(app: Path, os_state: Mapping[str, object] | None = None) -> dict:
+    files, os_state = _switch_files(app), os_state or {}
     sub, rules = current_profile_files(app)
     sub_text = _read(sub)
     proxies = count_proxies(sub_text) if sub_text else None
-    mode = mode_check(files["config.yaml"], proxies)
-    checks = switch_checks(files) + ([mode] if mode else []) + os_checks(os_state or {})
+    match_group = match_target(sub_text or "")
+    route = _route(app, files["config.yaml"], match_group)
+    port = _port(files["verge.yaml"], files["config.yaml"])
+    extra = [c for c in (mode_check(files["config.yaml"], proxies, route),
+                         port_check(port, os_state.get("port_listeners"))) if c]
+    checks = switch_checks(files) + extra + os_checks(os_state)
     rules_text = _read(rules)
     return {
         "app_dir": str(app),
-        "port": _port(files["verge.yaml"], files["config.yaml"]),
+        "port": port,
         "proxies": proxies,
         "checks": [asdict(c) for c in checks],
+        "claude_route": {"kind": route.kind, "chain": list(route.chain)} if route else None,
         "rules_file": rules.name if rules else None,
-        "match_group": match_target(sub_text or ""),
+        "match_group": match_group,
         "dns_template": dns_template_applied(_read(app / "dns_config.yaml")),
         "prepend_rules": has_prepend_rules(rules_text),
         "process_rules": [e for e in _entries(rules_text) if e.startswith(PROCESS_PREFIX)],
@@ -298,17 +342,17 @@ def _switch_changes(app: Path) -> list[tuple[Path, str, str]]:
     return changes
 
 
-def _desired_rules(sub_text: str, browser: str | None, platform: str) -> tuple[list[str], list[str]]:
+def _desired_rules(sub_text: str, browsers: list[str], platform: str) -> tuple[list[str], list[str]]:
     group, notes = match_target(sub_text), []
     if not group or group.upper() == "DIRECT":
         notes.append("订阅里没找到兜底规则 MATCH 走的代理组，进程规则没写，只写国内直连两条；请看一下订阅的规则")
         return list(PREPEND_RULES), notes
-    if not browser:
-        notes.append("没指定 --browser：只给 Claude 程序写了进程规则，Claude 专用浏览器的还没写")
-    return process_rules(browser, group, platform) + list(PREPEND_RULES), notes
+    if not browsers:
+        notes.append("没指定 --browser：只给 Claude 程序写了进程规则，登录 Claude 的浏览器的还没写")
+    return process_rules(browsers, group, platform) + list(PREPEND_RULES), notes
 
 
-def plan(app: Path, browser: str | None = None,
+def plan(app: Path, browsers: list[str] | None = None,
          platform: str = sys.platform) -> tuple[list[tuple[Path, str, str]], list[str]]:
     """要写的文件 (路径, 新内容, 说明)，以及不用改或改不了的说明。"""
     changes, notes = _switch_changes(app), []
@@ -322,7 +366,7 @@ def plan(app: Path, browser: str | None = None,
         notes.append("没找到当前订阅的规则文件（还没导入订阅，或用的是本地配置），前置规则没写；"
                      "请让用户在订阅上右键「编辑规则」手动加")
         return changes, notes
-    desired, rule_notes = _desired_rules(_read(sub) or "", browser, platform)
+    desired, rule_notes = _desired_rules(_read(sub) or "", list(browsers or []), platform)
     notes += rule_notes
     text = _read(rules) or ""
     try:
@@ -373,9 +417,9 @@ def _restart(app: Path, controller: clash_app.ClashApp | None, ready: ReadyCheck
 def apply(app: Path, dry_run: bool, stamp: str | None = None, controller: clash_app.ClashApp | None = None,
           ready: ReadyCheck = clash_app.wait_ready,
           exe_finder: Callable[[str | None], str | None] = clash_app.find_exe,
-          browser: str | None = None, platform: str = sys.platform) -> list[str]:
+          browsers: list[str] | None = None, platform: str = sys.platform) -> list[str]:
     stamp = stamp or time.strftime("%Y%m%d-%H%M%S")
-    changes, notes = plan(app, browser, platform)
+    changes, notes = plan(app, browsers, platform)
     if not changes and all(runtime_state(app).values()):
         return notes + ["都已经是推荐设置，不用改"]
     if dry_run:
@@ -429,6 +473,9 @@ def _print_status(report: dict) -> None:
     print(f"国内直连前置规则（{rules}）：{'已写入' if report['prepend_rules'] else '未写入 → 运行 apply'}")
     process = "；".join(report["process_rules"]) or "未写入 → 运行 apply --browser <浏览器>"
     print(f"全走节点的进程规则（兜底代理组 {report['match_group'] or '未找到'}）：{process}")
+    route = report["claude_route"]
+    known = route and route["kind"] != "unknown"
+    print(f"Claude 的流量最后落在：{' → '.join(route['chain']) if known else '判断不了（以自检测出的出口为准）'}")
     runtime = report["runtime"]
     loaded = all(runtime.values())
     print(f"Clash 实际加载的配置：{'已包含以上改动' if loaded else '还没包含 → 运行 apply（会重启 Clash）'}")
@@ -446,17 +493,19 @@ def _print_verify(result: dict) -> None:
         print(f"[X] Clash 实际加载的配置里还没有：{'、'.join(missing)} → 运行 apply")
 
 
-def _os_state(app: Path) -> dict[str, bool | None]:
+def _os_state(app: Path) -> dict[str, object]:
     files = _switch_files(app)
     port = _port(files["verge.yaml"], files["config.yaml"])
-    return {"system_proxy": clash_app.system_proxy_ok(port), "autostart": clash_app.autostart_registered()}
+    return {"system_proxy": clash_app.system_proxy_ok(port), "autostart": clash_app.autostart_registered(),
+            "port_listeners": clash_app.port_listeners(port)}
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Clash Verge 配置检查与修改（claude-antiban）")
     parser.add_argument("command", choices=["status", "apply", "verify", "restore"])
     parser.add_argument("--dir", help="Clash Verge 配置目录，默认按系统自动找")
-    parser.add_argument("--browser", choices=sorted(BROWSERS), help="apply 用：用户专门登录 Claude 的浏览器")
+    parser.add_argument("--browser", nargs="+", choices=sorted(BROWSERS), default=[],
+                        help="apply 用：用户登录 Claude 的浏览器；默认浏览器不是它、两个都设好时，两个都写")
     parser.add_argument("--dry-run", action="store_true", help="apply / restore 只预演，不写文件、不重启")
     parser.add_argument("--json", action="store_true", help="status / verify 输出 JSON")
     parser.add_argument("--no-restart", action="store_true", help="apply / restore 只改文件，不重启 Clash")
@@ -475,7 +524,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if args.command == "status" or result["ok"] else 1
     controller = None if args.dry_run or args.no_restart else clash_app.platform_app()
     if args.command == "apply":
-        messages = apply(app, dry_run=args.dry_run, controller=controller, browser=args.browser)
+        messages = apply(app, dry_run=args.dry_run, controller=controller, browsers=args.browser)
     else:
         messages = restore(app, dry_run=args.dry_run, controller=controller)
     for message in messages:

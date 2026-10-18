@@ -121,11 +121,11 @@ def test_tun_detected_when_direct_path_uses_exit_ip():
     assert "TUN" in items["direct"]["summary"]
 
 
-def test_system_proxy_with_different_exit_warns():
+def test_system_proxy_with_different_exit_is_bad():
     report = make_report(paths__system_proxy={"proxy": "http://127.0.0.1:7897", "echo": {"ip": "9.9.9.9"}})
     items = by_key(report)
-    assert items["system_proxy"]["level"] == "warn"
-    assert items["exit_stability"]["level"] == "warn"
+    assert items["system_proxy"]["level"] == "bad" and fd.ALONE in items["system_proxy"]["summary"]
+    assert items["exit_stability"]["level"] == "bad"
 
 
 @pytest.mark.parametrize("addresses,level", [
@@ -133,7 +133,7 @@ def test_system_proxy_with_different_exit_warns():
     (["abc.local"], "info"),             # mDNS only: STUN may be blocked, inconclusive
     (["abc.local", EXIT], "ok"),         # public candidate is the proxy exit
     (["192.168.1.5"], "warn"),           # LAN address exposed
-    (["8.8.4.4"], "warn"),               # some other public IP (e.g. separate UDP exit)
+    (["8.8.4.4"], "bad"),                # some other public IP (e.g. separate UDP exit)
     (["abc.local", REAL], "bad"),        # the user's real IP
 ])
 def test_webrtc_candidate_classification(addresses, level):
@@ -159,10 +159,10 @@ def test_dns_os_path_public_resolver_abroad_is_ok():
     assert by_key(report)["dns_os"]["level"] == "ok"
 
 
-def test_dns_os_path_cn_resolver_warns_with_fix():
+def test_dns_os_path_cn_resolver_is_bad_with_fix():
     report = make_report(dns__os={"servers": [{"country_code": "CN", "isp": "China Mobile"}]})
     finding = by_key(report)["dns_os"]
-    assert finding["level"] == "warn" and finding["fix"] == "dns"
+    assert finding["level"] == "bad" and finding["fix"] == "dns" and fd.ALONE in finding["summary"]
 
 
 def test_ipv6_browser_address_outside_exit_country_is_bad():
@@ -171,9 +171,60 @@ def test_ipv6_browser_address_outside_exit_country_is_bad():
     assert by_key(report)["ipv6"]["level"] == "bad"
 
 
-def test_ipv6_native_but_unused_by_browser_warns():
+def test_ipv6_native_but_unused_by_browser_is_bad():
     report = make_report(ipv6={"direct": {"reachable": True, "ip": "2409:8a00::1"}, "browser": None})
-    assert by_key(report)["ipv6"]["level"] == "warn"
+    finding = by_key(report)["ipv6"]
+    assert finding["level"] == "bad" and "必须关掉" in finding["summary"]
+
+
+@pytest.mark.parametrize("seen,wanted,level", [
+    ("chrome", "chrome", "info"),        # says the browser items only cover Chrome
+    ("firefox", "chrome", "warn"),       # page ran in the wrong browser
+    (None, "chrome", "warn"),            # unrecognised (maybe a domestic browser)
+])
+def test_tested_browser(seen, wanted, level):
+    report = make_report(claude_browsers=[wanted])
+    report["browser"].update(seen=seen, env={"userAgent": "Mozilla/5.0 QQBrowser/12"})
+    assert by_key(report)["tested_browser"]["level"] == level
+
+
+def test_tested_browser_absent_for_old_reports():
+    assert "tested_browser" not in by_key(make_report())
+
+
+@pytest.mark.parametrize("default,claude,seen,level", [
+    ({"key": "chrome", "name": "Chrome", "progid": "ChromeHTML"}, ["chrome"], "chrome", "ok"),
+    ({"key": "edge", "name": "Edge", "progid": "MSEdgeHTM"}, ["chrome"], "chrome", "bad"),  # unprepared Edge
+    ({"key": "edge", "name": "Edge", "progid": "MSEdgeHTM"}, ["edge", "chrome"], "edge", "ok"),
+    ({"key": "edge", "name": "Edge", "progid": "MSEdgeHTM"}, ["chrome", "edge"], "chrome", "warn"),  # --also, untested
+    ({"key": None, "name": "360se", "domestic": True}, ["chrome"], "chrome", "bad"),
+    ({"key": None, "name": "Safari", "bundle": "com.apple.safari"}, ["chrome"], "chrome", "bad"),  # unsupported
+    ({"key": None, "name": "没查到"}, ["chrome"], "chrome", "info"),                              # unreadable
+    ({"key": "edge", "name": "Edge", "progid": "MSEdgeHTM"}, [], "chrome", "info"),
+])
+def test_default_browser(default, claude, seen, level):
+    report = make_report(default_browser=default, claude_browsers=claude)
+    report["browser"]["seen"] = seen
+    assert by_key(report)["default_browser"]["level"] == level
+
+
+def test_default_browser_without_a_page_trusts_also():
+    report = make_report(default_browser={"key": "edge", "name": "Edge", "progid": "MSEdgeHTM"},
+                         claude_browsers=["chrome", "edge"], browser=None)
+    assert by_key(report)["default_browser"]["level"] == "ok"
+
+
+def test_tested_browser_lists_the_untested_also_browser():
+    report = make_report(claude_browsers=["chrome", "edge"])
+    report["browser"]["seen"] = "chrome"
+    assert "--browser edge --also chrome" in by_key(report)["tested_browser"]["summary"]
+
+
+def test_default_browser_mismatch_offers_both_ways_out():
+    report = make_report(default_browser={"key": "edge", "name": "Edge", "progid": "MSEdgeHTM"},
+                         claude_browsers=["chrome"])
+    summary = by_key(report)["default_browser"]["summary"]
+    assert "改成 Chrome" in summary and "--browser edge --also chrome" in summary
 
 
 @pytest.mark.parametrize("tz,offset,level", [

@@ -26,10 +26,17 @@ RULES_SKELETON = "# Profile Enhancement Rules Template for Clash Verge\n\nprepen
 
 
 def unquote(value: str) -> str:
-    value = re.sub(r"\s+#.*$", "", value).strip()
-    if len(value) >= 2 and value[0] == value[-1] and value[0] in "'\"":
-        return value[1:-1]
-    return value
+    """去掉 YAML 标量的引号和行尾注释；引号里的 " #" 不算注释（节点名里常有）。"""
+    value = value.strip()
+    quote = value[:1]
+    if quote in ("'", '"'):
+        end = value.find(quote, 1)
+        while quote == "'" and end != -1 and value[end + 1:end + 2] == "'":  # '' 是转义的单引号
+            end = value.find(quote, end + 2)
+        if end != -1:
+            inner = value[1:end]
+            return inner.replace("''", "'") if quote == "'" else inner
+    return re.sub(r"\s+#.*$", "", value).strip()
 
 
 def _block_items(lines: list[str]) -> list[str]:
@@ -64,9 +71,11 @@ def match_target(subscription: str) -> str | None:
     return found[-1].strip() if found else None
 
 
-def process_rules(browser: str | None, group: str, platform: str) -> list[str]:
-    names = list(BROWSERS.get(browser or "", {}).get(platform, ())) + list(CLAUDE_APPS.get(platform, ()))
-    return [f"{PROCESS_PREFIX}{name},{group}" for name in names]
+def process_rules(browsers: list[str] | str | None, group: str, platform: str) -> list[str]:
+    chosen = [browsers] if isinstance(browsers, str) else list(browsers or [])
+    names = [name for b in chosen for name in BROWSERS.get(b, {}).get(platform, ())]
+    names += list(CLAUDE_APPS.get(platform, ()))
+    return [f"{PROCESS_PREFIX}{name},{group}" for name in dict.fromkeys(names)]
 
 
 def in_order(entries: list[str], desired: list[str]) -> bool:

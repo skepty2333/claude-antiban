@@ -40,7 +40,7 @@ def bridge(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(bb, "_ExclusiveServer", make_server)
     holder: dict[str, Any] = {}
     thread = threading.Thread(target=lambda: holder.update(
-        result=bb.run_in_browser({"dnsIds": ["a"]}, open_browser=False, timeout=5)))
+        result=bb.run_in_browser({"dnsIds": ["a"]}, opener=None, timeout=5)))
     thread.start()
     for _ in range(100):
         if "server" in started and "session" in captured:

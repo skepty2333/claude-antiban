@@ -26,12 +26,15 @@ def _chromium_local_states() -> dict[str, Path]:
     if sys.platform == "win32":
         base = Path(os.environ.get("LOCALAPPDATA", home / "AppData" / "Local"))
         return {"Chrome": base / "Google/Chrome/User Data/Local State",
-                "Edge": base / "Microsoft/Edge/User Data/Local State"}
+                "Edge": base / "Microsoft/Edge/User Data/Local State",
+                "Brave": base / "BraveSoftware/Brave-Browser/User Data/Local State"}
     if sys.platform == "darwin":
         base = home / "Library/Application Support"
-        return {"Chrome": base / "Google/Chrome/Local State", "Edge": base / "Microsoft Edge/Local State"}
+        return {"Chrome": base / "Google/Chrome/Local State", "Edge": base / "Microsoft Edge/Local State",
+                "Brave": base / "BraveSoftware/Brave-Browser/Local State"}
     return {"Chrome": home / ".config/google-chrome/Local State",
-            "Edge": home / ".config/microsoft-edge/Local State"}
+            "Edge": home / ".config/microsoft-edge/Local State",
+            "Brave": home / ".config/BraveSoftware/Brave-Browser/Local State"}
 
 
 def _windows_policy(browser: str) -> Optional[str]:
@@ -40,7 +43,8 @@ def _windows_policy(browser: str) -> Optional[str]:
         return None
     import winreg
 
-    key = {"Chrome": r"SOFTWARE\Policies\Google\Chrome", "Edge": r"SOFTWARE\Policies\Microsoft\Edge"}[browser]
+    key = {"Chrome": r"SOFTWARE\Policies\Google\Chrome", "Edge": r"SOFTWARE\Policies\Microsoft\Edge",
+           "Brave": r"SOFTWARE\Policies\BraveSoftware\Brave"}[browser]
     for root in (winreg.HKEY_LOCAL_MACHINE, winreg.HKEY_CURRENT_USER):
         try:
             with winreg.OpenKey(root, key) as handle:
@@ -60,13 +64,18 @@ def _firefox_trr() -> Optional[Json]:
     modes = []
     for prefs in root.glob("*/prefs.js"):
         text = prefs.read_text(encoding="utf-8", errors="replace")
-        match = re.search(r'user_pref\("network\.trr\.mode",\s*(\d+)\)', text)
-        modes.append(int(match.group(1)) if match else 0)
+        match = (re.search(r'user_pref\("network\.trr\.mode",\s*(\d+)\)', text)
+                 or re.search(r'user_pref\("doh-rollout\.mode",\s*(\d+)\)', text))
+        modes.append(int(match.group(1)) if match else None)
     if not modes:
         return None
-    # 2 = DoH first, 3 = DoH only; 0/5 = off (0 may still be enabled by Firefox's regional rollout).
-    on = any(m in (2, 3) for m in modes)
-    return {"mode": "on" if on else "off", "detail": f"network.trr.mode={sorted(set(modes))}"}
+    # 2 = DoH first, 3 = DoH only; 0/5 = off. Not set at all: Firefox turns DoH on by itself in some
+    # regions (the US among them), judged by the IP, so it is unknown until set to off explicitly.
+    if any(m in (2, 3) for m in modes):
+        return {"mode": "on", "detail": f"network.trr.mode={sorted({m for m in modes if m is not None})}"}
+    if None in modes:
+        return {"mode": "unknown", "detail": "没设置过（Firefox 在美国等地区会自己打开），要在设置里明确选「关闭」"}
+    return {"mode": "off", "detail": f"network.trr.mode={sorted(set(modes))}"}
 
 
 def browser_secure_dns() -> dict[str, Json]:
