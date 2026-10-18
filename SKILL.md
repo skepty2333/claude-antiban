@@ -46,8 +46,8 @@ Claude 能看到的只有两样东西：发往它服务器的连接，和浏览�
 两种流程都一样。用户第一条消息里没说的，先问，问清楚再跑检测。
 
 1. **静态 IP**：买了没有，现在电脑上是不是就在用它。
-   - **已经在用**：基线检测直接查这个 IP（不加 `--no-claude`），第 2 步的结果就当 IP 的检查点；第 9 步不用交接 C，只做检查；第 6、10 步可以合成一次提权运行。IP 是用户买来的，多半没问题，问题通常出在别的地方，重点查那些；IP 真查出滥用记录、出口国家不对，照样直说，请他找卖家。
-   - **还没买，或者买了还没到**：先用他现在的代理，做不依赖 IP 的步骤，做到第 9 步停下来等。
+   - **已经在用**：基线检测直接查这个 IP（不加 `--no-claude`），第 2 步的结果就当 IP 的检查点；第 8 步不用交接 C，只做检查；第 6、9 步可以合成一次提权运行。IP 是用户买来的，多半没问题，问题通常出在别的地方，重点查那些；IP 真查出滥用记录、出口国家不对，照样直说，请他找卖家。
+   - **还没买，或者买了还没到**：先用他现在的代理，做不依赖 IP 的步骤，做到第 8 步停下来等。
 2. **登录 Claude 用哪个浏览器**：先运行 `python <skill>/scripts/browsers.py`，看默认浏览器是哪个、装了哪些，再问用户。**不要把默认浏览器当成答案，也不要替用户挑一个。** 他用的是 360、QQ、夸克这类国产浏览器的，请他换成 Chrome、Edge、Firefox 或 Brave。
 
 **默认浏览器和登录 Claude 的浏览器不是同一个时**，停下来讲给用户：Claude 桌面端、Claude Code 登录时，还有邮件里的登录链接，都会自动用默认浏览器打开，用户选不了，所以默认浏览器也会碰到 Claude。让他二选一：
@@ -68,7 +68,7 @@ Claude 能看到的只有两样东西：发往它服务器的连接，和浏览�
 | **C 换上静态 IP** | **这时必须已经买好 IP**；导入新订阅、选节点和模式、删掉临时订阅 | `SETUP.md`「三、换上你买的静态 IP」；还没买的，发 `README.md`「要买的东西」 |
 | **D 登录** | **这时必须已经有 Claude 账号**；登录，不在手机上装 Claude App；普号登录后先正常用至少 72 小时再充会员 | `SETUP.md`「五、登录 Claude」。交接时把 72 小时这一条单独说一遍 |
 
-不要一开始就让用户去买东西。IP 到第 9 步才用得上，账号到第 12 步才用得上，前面的步骤照常做；做到这两步时用户还没买好，就停下等他。
+不要一开始就让用户去买东西。IP 到第 8 步才用得上，账号到第 11 步才用得上，前面的步骤照常做；做到这两步时用户还没买好，就停下等他。
 
 还有几种配合，不用单独停下，但必须在同一条回复里事先说清楚：
 
@@ -98,38 +98,37 @@ Claude 能看到的只有两样东西：发往它服务器的连接，和浏览�
 | # | 做什么 | 谁 | 怎么做 | 通过标准 |
 |---|---|---|---|---|
 | 1 | 摸底 | 你 | `python <skill>/scripts/setup/clash_verge.py status`、`python <skill>/scripts/browsers.py`；Windows 再跑 `<skill>/scripts/setup/windows-setup.ps1`（不带参数只看状态） | 知道用户做到哪了，「开工前先问清两件事」都问清了，默认浏览器的事也定了。登录 Claude 的浏览器以后全走节点，国内网站要换另一个浏览器，这一点讲清楚 |
-| 2 | 基线检测 | 你；用户别关检测页 | `python <skill>/scripts/selfcheck.py --browser <登录 Claude 的浏览器>`（两个浏览器都设的，加 `--also <另一个>`）。还没在用买的 IP 就加 `--no-claude` | 用大白话讲给用户：fuck-claude 现在多少分，命中了哪几项，每一项在后面第几步、由谁来改；中文字体那一项改不了，也要说明。记下报告 JSON 的路径，第 11 步要对比 |
+| 2 | 基线检测 | 你；用户别关检测页 | `python <skill>/scripts/selfcheck.py --browser <登录 Claude 的浏览器>`（两个浏览器都设的，加 `--also <另一个>`）。还没在用买的 IP 就加 `--no-claude` | 用大白话讲给用户：fuck-claude 现在多少分，命中了哪几项，每一项在后面第几步、由谁来改；中文字体那一项改不了，也要说明。记下报告 JSON 的路径，第 10 步要对比 |
 | 3 | 让代理跑起来 | 用户 | 交接 A，只交 status 里没做好的部分；先用他现有的订阅 | 用户回复做完 |
 | 4 | Clash 配置 | 你 | `clash_verge.py apply --browser <chrome/edge/firefox/brave，两个都设的写两个> --dry-run` 给用户看；同意后去掉 `--dry-run` 再跑：备份，改开关（系统代理开、TUN 关、开机自启、静默启动、IPv6 关、局域网关、DNS 覆写开），写 DNS 覆写和前置规则（登录 Claude 的浏览器和 `claude.exe` 全走节点，排在国内直连前面），重启 Clash | `clash_verge.py status` 全 [OK]，包括「系统里实际的代理设置」「系统里登记的开机自启」「代理端口上的程序」；`verify` 为 [OK]（进程规则已加载，排在国内直连前面）。端口上还有别的程序的，按那一项的提示请用户退出或卸载它（多半是别的代理软件、加速器），不要自己换端口绕过去。「代理模式」那一项会写出 Claude 的流量最后落在哪个节点，落在自动选择的组或 DIRECT 上的，按提示请用户在 Clash 里改。模式不对的，请用户在 Clash 首页改；系统里没生效的，请用户在 Clash「设置」页手动打开那个开关（截图 `assets/clash-4-settings.png`，图里虚拟网卡开着，那是原教程的状态） |
 | 5 | 代理变量 | 你 | `HTTPS_PROXY` 没设或端口和 status 的「代理端口」不一致时，`windows-setup.ps1 -ProxyPort <端口>`（macOS：`macos-setup.sh --proxy-port <端口>`） | 用户变量 `HTTPS_PROXY` 是 `http://127.0.0.1:<端口>` |
 | 6 | 系统 IPv6、网卡 DNS | 你；用户点「是」 | 见下面「提权运行」，只带 `-NetworkTask` | 日志里每块网卡 IPv6 关、DNS 为 `1.1.1.1, 8.8.8.8` |
-| 7 | 国产厂商字体 | 你；用户同意并点「是」 | 第 2 步命中「国产厂商字体」时才做，见下面「删字体」 | 用户同意并删完、重启过；或者用户决定不删（尊重他的决定，最后报告里这一项照样是 [!]） |
-| 8 | 浏览器 | 用户 | 交接 B。两个浏览器都设的，两个都要做完 | 用户回复做完 |
-| 9 | 换上静态 IP，检查 IP | 用户先换，你再查 | 交接 C（用户还没买好 IP，就停在这里等）→ `clash_verge.py status`，核对 Claude 的流量落在新买的节点上 → `clash_verge.py apply --browser <同上>`，给新订阅补前置规则并重启 → `selfcheck.py --skip-browser --browser <同第 2 步>`（两个浏览器都设的带上 `--also`） | 出口国家对，IP 没有滥用记录；不合格就停下，请用户找卖家。时区那一项告诉你要不要改、改成什么 |
-| 10 | 时区 | 你；用户点「是」 | 见下面「提权运行」，只带 `-TimeZone` | 日志里时区对，自动设置时区已关闭 |
-| 11 | 完整检测，和起点对比 | 你；用户别关检测页 | `python <skill>/scripts/selfcheck.py --browser <同第 2 步>`；两个浏览器都设的，`--browser A --also B` 和 `--browser B --also A` 各跑一次 | "严重"为 0，主要项 [OK]。把起点和现在的 fuck-claude 分数、各项变化列给用户看 |
-| 12 | 登录 | 用户 | 交接 D（用户还没有账号，就停在这里等） | 用户回复登录好了 |
-| 13 | Claude Code（需要的话） | 你 | 按 Anthropic 官方文档安装，Windows 先装 Git for Windows | `Get-Command claude` 找得到。不要运行 `claude` 来测试 |
+| 7 | 浏览器和指纹 | 用户设浏览器；你删字体，用户同意并点「是」 | 第 2 步命中的指纹项，除了时区（第 9 步），都在这一步处理。先交接 B：命中「国产浏览器」的，请用户先换成 Chrome、Edge、Firefox 或 Brave；两个浏览器都设的，两个都要做。命中「国产厂商字体」的，再按下面「删字体」处理，没命中就跳过 | 用户回复浏览器设完；字体删完、重启过，或者用户决定不删（尊重他的决定，最后报告里这一项照样是 [!]） |
+| 8 | 换上静态 IP，检查 IP | 用户先换，你再查 | 交接 C（用户还没买好 IP，就停在这里等）→ `clash_verge.py status`，核对 Claude 的流量落在新买的节点上 → `clash_verge.py apply --browser <同上>`，给新订阅补前置规则并重启 → `selfcheck.py --skip-browser --browser <同第 2 步>`（两个浏览器都设的带上 `--also`） | 出口国家对，IP 没有滥用记录；不合格就停下，请用户找卖家。时区那一项告诉你要不要改、改成什么 |
+| 9 | 时区 | 你；用户点「是」 | 见下面「提权运行」，只带 `-TimeZone` | 日志里时区对，自动设置时区已关闭 |
+| 10 | 完整检测，和起点对比 | 你；用户别关检测页 | `python <skill>/scripts/selfcheck.py --browser <同第 2 步>`；两个浏览器都设的，`--browser A --also B` 和 `--browser B --also A` 各跑一次 | "严重"为 0，主要项 [OK]。把起点和现在的 fuck-claude 分数、各项变化列给用户看 |
+| 11 | 登录 | 用户 | 交接 D（用户还没有账号，就停在这里等） | 用户回复登录好了 |
+| 12 | Claude Code（需要的话） | 你 | 按 Anthropic 官方文档安装，Windows 先装 Git for Windows | `Get-Command claude` 找得到。不要运行 `claude` 来测试 |
 
-**用 v2rayN 的**：status 会报"没找到 Clash Verge"。交接 A、C 时让用户看 SETUP 附录 A，开关也请他照附录 A 自己设，路由选「全局」（v2rayN 做不了专用浏览器的进程规则）；第 4 步和第 9 步里的 `apply` 跳过；端口是 v2rayN 左下角 `mixed:` 后面的数字（默认 10808）。
+**用 v2rayN 的**：status 会报"没找到 Clash Verge"。交接 A、C 时让用户看 SETUP 附录 A，开关也请他照附录 A 自己设，路由选「全局」（v2rayN 做不了专用浏览器的进程规则）；第 4 步和第 8 步里的 `apply` 跳过；端口是 v2rayN 左下角 `mixed:` 后面的数字（默认 10808）。
 
-**时区**：第 9 步检查里，时区那一项按 IP 库多数结果判断；不一致时，提示里带着 Windows 时区名（如 `Pacific Standard Time`），对得上就不用改。
+**时区**：第 8 步检查里，时区那一项按 IP 库多数结果判断；不一致时，提示里带着 Windows 时区名（如 `Pacific Standard Time`），对得上就不用改。
 
-**提权运行（第 6、10 步，Windows）**：
+**提权运行（第 6、9 步，Windows）**：
 
-1. 先不提权预演：`windows-setup.ps1 -NetworkTask -WhatIf`（第 10 步是 `-TimeZone "<Windows 时区名>" -WhatIf`），把要改的内容给用户看。
+1. 先不提权预演：`windows-setup.ps1 -NetworkTask -WhatIf`（第 9 步是 `-TimeZone "<Windows 时区名>" -WhatIf`），把要改的内容给用户看。
 2. 用户同意后，在同一条回复里先说"马上会弹出管理员确认窗口，请点「是」。关 IPv6、改网卡 DNS、改时区都是系统设置，要管理员权限"，再运行（日志放在临时目录）：
 
    ```powershell
    Start-Process powershell -Verb RunAs -Wait -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','"<skill>\scripts\setup\windows-setup.ps1"','-NetworkTask','-LogPath','"<日志路径>"'
    ```
 
-   第 10 步把 `'-NetworkTask'` 换成 `'-TimeZone','"<Windows 时区名>"'`；两步合在一起做就两个都带上。
+   第 9 步把 `'-NetworkTask'` 换成 `'-TimeZone','"<Windows 时区名>"'`；两步合在一起做就两个都带上。
 3. 读日志确认结果。用户点了「否」，`Start-Process` 会报错，问过用户再来一次。
 
 用户经常连需要网页登录的 Wi-Fi（酒店、机场、部分校园网）的，第 6 步加 `'-KeepDns'`，只关 IPv6，不改网卡 DNS。
 
-**删字体（第 7 步，Windows）**：WPS、小米、华为、阿里这些厂商会往电脑里装自己的字体，网页能测出来，fuck-claude 记 10 分。`fonts.py` 的名单直接读自 fuck-claude 的规则，系统自带的微软雅黑、宋体不在名单里。
+**删字体（第 7 步里，Windows）**：WPS、小米、华为、阿里这些厂商会往电脑里装自己的字体，网页能测出来，fuck-claude 记 10 分。`fonts.py` 的名单直接读自 fuck-claude 的规则，系统自带的微软雅黑、宋体不在名单里。
 
 1. `python <skill>/scripts/setup/fonts.py list`，列出装了哪几款。
 2. 讲清楚，再问用户同不同意，**不能悄悄删**：
