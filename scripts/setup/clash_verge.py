@@ -7,8 +7,8 @@
 
     python clash_verge.py status [--json]                  # 开关、端口、节点数、DNS 和规则是否写入并生效
     python clash_verge.py apply --browser chrome [edge] [--dry-run]
-        # 改开关、写 DNS 覆写和前置规则（登录 Claude 的浏览器和 Claude 程序全走节点、国内直连），重启 Clash
-        # 默认浏览器和登录 Claude 的浏览器不是同一个、两个都设好时，两个都写上
+        # 改开关、写 DNS 覆写和前置规则（使用 Claude 网页版的浏览器和 Claude 程序全走节点、国内直连），重启 Clash
+        # 默认浏览器和使用 Claude 网页版的浏览器不是同一个、两个都设好时，两个都写上
     python clash_verge.py verify [--json]                  # 确认 Clash 实际加载的配置已包含改动
     python clash_verge.py restore [--dry-run]              # 用最近一次备份还原，重启 Clash
     apply / restore 加 --no-restart：只改文件，不重启 Clash
@@ -348,7 +348,7 @@ def _desired_rules(sub_text: str, browsers: list[str], platform: str) -> tuple[l
         notes.append("订阅里没找到兜底规则 MATCH 走的代理组，进程规则没写，只写国内直连两条；请看一下订阅的规则")
         return list(PREPEND_RULES), notes
     if not browsers:
-        notes.append("没指定 --browser：只给 Claude 程序写了进程规则，登录 Claude 的浏览器的还没写")
+        notes.append("没指定 --browser：只给 Claude 程序写了进程规则，使用 Claude 网页版的浏览器的还没写")
     return process_rules(browsers, group, platform) + list(PREPEND_RULES), notes
 
 
@@ -505,7 +505,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("command", choices=["status", "apply", "verify", "restore"])
     parser.add_argument("--dir", help="Clash Verge 配置目录，默认按系统自动找")
     parser.add_argument("--browser", nargs="+", choices=sorted(BROWSERS), default=[],
-                        help="apply 用：用户登录 Claude 的浏览器；默认浏览器不是它、两个都设好时，两个都写")
+                        help="apply 用：用户使用 Claude 网页版的浏览器；默认浏览器不是它、两个都设好时，两个都写")
     parser.add_argument("--dry-run", action="store_true", help="apply / restore 只预演，不写文件、不重启")
     parser.add_argument("--json", action="store_true", help="status / verify 输出 JSON")
     parser.add_argument("--no-restart", action="store_true", help="apply / restore 只改文件，不重启 Clash")

@@ -53,7 +53,7 @@ WINDOWS_TO_IANA.update({"China Standard Time": "Asia/Shanghai", "Taipei Standard
 def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Claude 防封环境自检")
     p.add_argument("--browser", choices=sorted(br.KNOWN),
-                   help="必填。用户登录 Claude 的浏览器，检测页在它里面打开（先问用户，不要猜）")
+                   help="必填。用户使用 Claude 网页版的浏览器，检测页在它里面打开（先问用户，不要猜）")
     p.add_argument("--also", choices=sorted(br.KNOWN),
                    help="另一个也会碰到 Claude 的浏览器：默认浏览器和 --browser 不是同一个、两个都设好了时填默认浏览器")
     p.add_argument("--no-open", action="store_true", help="不自动打开浏览器，只打印检测页地址")
@@ -66,8 +66,8 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
                    help="完整结果 JSON 的保存路径")
     args = p.parse_args(argv)
     if not args.browser:
-        p.error(f"先问用户登录 Claude 用的是哪个浏览器，再加 --browser <浏览器>（这台电脑的默认浏览器是 "
-                f"{default_browser()['name']}）。检测页不会自动在默认浏览器里打开：要测的是登录 Claude 的那个浏览器")
+        p.error(f"先问用户 Claude 网页版用的是哪个浏览器，再加 --browser <浏览器>（这台电脑的默认浏览器是 "
+                f"{default_browser()['name']}）。检测页不会自动在默认浏览器里打开：要测的是使用 Claude 网页版的那个浏览器")
     if args.also == args.browser:
         p.error("--also 是另一个也会碰到 Claude 的浏览器，不能和 --browser 相同")
     return args
@@ -165,7 +165,7 @@ def run_browser(px: Json, args: argparse.Namespace) -> tuple[Optional[Json], lis
         ids = []
     target = getattr(args, "browser", None)
     opener = None if args.no_open or not target else (lambda url: br.open_url(target, url))
-    label = br.display(target) if target else "你登录 Claude 的那个浏览器"
+    label = br.display(target) if target else "你使用 Claude 网页版的那个浏览器"
     raw = run_in_browser({"dnsIds": ids, "skipClaude": args.no_claude},
                          opener=opener, label=label, timeout=args.timeout)
     if isinstance(raw, dict) and raw.get("error"):
@@ -211,7 +211,7 @@ def build_report(px: Json, futures: dict[str, Any], browser: Optional[Json],
         "platform": sys.platform,
         "browser_status": browser_status,
         "browser": browser,
-        # 用户登录 Claude 的浏览器（--browser，加上 --also）；默认浏览器也要算在里面才安全
+        # 用户使用 Claude 网页版的浏览器（--browser，加上 --also）；默认浏览器也要算在里面才安全
         "claude_browsers": claude_browsers or [],
         "default_browser": default_browser(),
         "system_proxy_pac": px["pac"],

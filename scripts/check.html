@@ -138,7 +138,7 @@ async function main() {
   // Opened by double-click or a file preview: no local bridge, nothing to report to.
   if (location.protocol !== 'http:' || !TOKEN) {
     document.getElementById('status').textContent =
-      '这个页面要由检测脚本打开，直接双击打开测不了。请让带你配置的 AI 来跑检测，它会在你登录 Claude 的浏览器里打开这一页。';
+      '这个页面要由检测脚本打开，直接双击打开测不了。请让带你配置的 AI 来跑检测，它会在你使用 Claude 网页版的浏览器里打开这一页。';
     return;
   }
   const config = await (await fetch(`config?t=${TOKEN}`)).json();

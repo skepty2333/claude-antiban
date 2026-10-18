@@ -127,7 +127,7 @@ def _handler(session: _Session) -> type:
 
 
 def run_in_browser(config: dict[str, Any], opener: Optional[Callable[[str], bool]] = None,
-                   label: str = "你登录 Claude 的那个浏览器",
+                   label: str = "你使用 Claude 网页版的那个浏览器",
                    timeout: float = 180) -> Optional[dict[str, Any]]:
     """Serve check.html, open it with `opener` (None: only print the URL), wait for the posted result.
 
@@ -141,7 +141,7 @@ def run_in_browser(config: dict[str, Any], opener: Optional[Callable[[str], bool
     print(f"\n浏览器检测页：{url}")
     try:
         if opener is not None and opener(url):
-            print(f"已在 {label} 里打开检测页。用户有好几个浏览器用户（配置文件）的，确认开在登录 Claude 的那一个里。")
+            print(f"已在 {label} 里打开检测页。用户有好几个浏览器用户（配置文件）的，确认开在使用 Claude 网页版的那一个里。")
         else:
             print(f"请把上面的地址复制到 {label} 里打开。")
         print(f"等待浏览器回传结果（最多 {int(timeout)} 秒）…")

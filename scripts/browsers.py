@@ -232,7 +232,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         print(json.dumps(result, ensure_ascii=False))
         return 0
     default = result["default"]
-    tail = "（国产浏览器，不能用来登录 Claude）" if default["domestic"] else ""
+    tail = "（国产浏览器，不能用来打开 Claude 网页版）" if default["domestic"] else ""
     print(f"默认浏览器：{default['name']}{tail}")
     print(f"装了的浏览器：{'、'.join(display(k) for k in result['installed']) or '没找到 Chrome、Edge、Firefox、Brave'}")
     return 0

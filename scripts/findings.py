@@ -419,7 +419,7 @@ def eval_secure_dns(report: Json) -> Json:
         if not on:
             return finding("secure_dns", title, "ok", f"{'、'.join(data)} 的安全 DNS 都已关闭")
         return finding("secure_dns", title, "warn",
-                       f"{_doh_desc(on)}。没指定登录 Claude 的浏览器：如果是它，{why}", "browser")
+                       f"{_doh_desc(on)}。没指定使用 Claude 网页版的浏览器：如果是它，{why}", "browser")
     risky = {b: d for b, d in on.items() if b in claude}
     if risky:
         return finding("secure_dns", title, "bad", f"{_doh_desc(risky)}：{why}", "browser")
@@ -432,7 +432,7 @@ def eval_secure_dns(report: Json) -> Json:
     others = {b: d for b, d in on.items() if b not in claude}
     if others:
         return finding("secure_dns", title, "info",
-                       f"{'、'.join(claude)} 已关闭；{_doh_desc(others)}：只要不用它登录 Claude、它也不是默认浏览器，就没关系")
+                       f"{'、'.join(claude)} 已关闭；{_doh_desc(others)}：只要不用它打开 Claude 网页版、它也不是默认浏览器，就没关系")
     return finding("secure_dns", title, "ok", f"{'、'.join(claude)} 的安全 DNS 已关闭")
 
 
@@ -446,7 +446,7 @@ def eval_tested_browser(report: Json) -> Optional[Json]:
     if seen not in BROWSER_NAMES:
         ua = str((b.get("env") or {}).get("userAgent") or "")[:100]
         return finding("tested_browser", title, "warn",
-                       f"检测页跑在一个认不出的浏览器里（{ua}）：360、QQ 这类国产浏览器不能用来登录 Claude", "browser")
+                       f"检测页跑在一个认不出的浏览器里（{ua}）：360、QQ 这类国产浏览器不能用来打开 Claude 网页版", "browser")
     shown = BROWSER_NAMES[seen]
     if wanted and seen != wanted:
         return finding("tested_browser", title, "warn",
@@ -459,7 +459,7 @@ def eval_tested_browser(report: Json) -> Optional[Json]:
 
 
 def eval_default_browser(report: Json) -> Optional[Json]:
-    """默认浏览器也会碰到 Claude：要么就是登录 Claude 的那个，要么也照样设好。"""
+    """默认浏览器也会碰到 Claude：要么就是使用 Claude 网页版的那个，要么也照样设好。"""
     d = report.get("default_browser")
     if not d:
         return None
@@ -467,7 +467,7 @@ def eval_default_browser(report: Json) -> Optional[Json]:
     claude = [b for b in report.get("claude_browsers") or [] if b in BROWSER_NAMES]
     if d.get("domestic"):
         return finding("default_browser", title, "bad",
-                       f"默认浏览器是 {name}，是国产浏览器：{DEFAULT_OPENS}，{ALONE}。要把默认浏览器改成登录 Claude 的那个",
+                       f"默认浏览器是 {name}，是国产浏览器：{DEFAULT_OPENS}，{ALONE}。要把默认浏览器改成使用 Claude 网页版的那个",
                        "browser")
     readable = any(d.get(k) for k in ("progid", "exe", "bundle"))
     if not claude or (key is None and not readable):
@@ -484,7 +484,7 @@ def eval_default_browser(report: Json) -> Optional[Json]:
     way_out = (f"要么 {name} 也照 SETUP 第二节设好，再用 --browser {key} --also {claude[0]} 测一遍" if key
                else "要么换成本 skill 支持的浏览器（Chrome、Edge、Firefox、Brave）当默认浏览器，也照样设好")
     return finding("default_browser", title, "bad",
-                   f"默认浏览器是 {name}，不是登录 Claude 的 {main}：{DEFAULT_OPENS}，没设好的 {name} 会把你的真实环境"
+                   f"默认浏览器是 {name}，不是使用 Claude 网页版的 {main}：{DEFAULT_OPENS}，没设好的 {name} 会把你的真实环境"
                    f"带给 Claude。要么把默认浏览器改成 {main}（推荐），{way_out}", "browser")
 
 
